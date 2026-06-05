@@ -102,6 +102,7 @@ svg {
 
 .session-summary div,
 .entry-panel,
+.templates-panel,
 .workout-list,
 .progress-panel,
 .history-panel {
@@ -126,6 +127,7 @@ svg {
 }
 
 .entry-panel,
+.templates-panel,
 .workout-list,
 .progress-panel,
 .history-panel {
@@ -291,17 +293,20 @@ svg {
   font-weight: 850;
 }
 
+.templates-panel,
 .workout-list,
 .progress-panel,
 .history-panel {
   margin-top: 12px;
 }
 
+.templates-panel details,
 .progress-panel details {
   display: grid;
   gap: 10px;
 }
 
+.templates-panel summary,
 .progress-panel summary {
   display: flex;
   align-items: start;
@@ -311,10 +316,12 @@ svg {
   list-style: none;
 }
 
+.templates-panel summary::-webkit-details-marker,
 .progress-panel summary::-webkit-details-marker {
   display: none;
 }
 
+.templates-panel summary span,
 .progress-panel summary span {
   display: block;
   margin-top: 4px;
@@ -324,6 +331,7 @@ svg {
   text-transform: uppercase;
 }
 
+.templates-panel summary svg,
 .progress-panel summary svg {
   flex: 0 0 auto;
   margin-top: 1px;
@@ -331,8 +339,44 @@ svg {
   transition: transform 160ms ease;
 }
 
+.templates-panel details[open] summary svg,
 .progress-panel details[open] summary svg {
   transform: rotate(180deg);
+}
+
+.template-editor {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.template-editor button,
+.template-actions button,
+.panel-actions button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-strong);
+  color: var(--text);
+  font-weight: 800;
+}
+
+.template-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.template-actions button:last-child {
+  color: var(--warn);
+}
+
+.panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin: 10px 0;
 }
 
 .section-heading {
@@ -365,6 +409,7 @@ ul {
 
 .exercise-card,
 .progress-card,
+.template-card,
 .history-card {
   display: grid;
   gap: 8px;
@@ -376,6 +421,7 @@ ul {
 
 .exercise-card header,
 .progress-card header,
+.template-card summary,
 .history-card summary,
 .saved-session-list header {
   display: flex;
@@ -386,10 +432,55 @@ ul {
 
 .exercise-card h3,
 .progress-card h3,
+.template-card h3,
 .history-card h3,
 .saved-session-list h4 {
   margin: 0;
   font-size: 1rem;
+}
+
+.history-panel details {
+  display: grid;
+  gap: 10px;
+}
+
+.history-panel > details > summary,
+.template-card summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.history-panel > details > summary {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history-panel > details > summary span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.history-panel > details > summary::-webkit-details-marker,
+.template-card summary::-webkit-details-marker {
+  display: none;
+}
+
+.history-panel > details > summary svg,
+.template-card summary svg {
+  flex: 0 0 auto;
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.history-panel > details[open] > summary svg,
+.template-card details[open] summary svg {
+  transform: rotate(180deg);
 }
 
 .history-card {

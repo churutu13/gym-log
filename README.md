@@ -1,6 +1,6 @@
 # Gym Log
 
-Tracker palestra mobile-first per iPhone. Permette di registrare esercizi con serie indipendenti, peso e ripetizioni per ogni serie, pause preimpostate, durata della sessione, storico allenamenti apribile, autocomplete sugli esercizi salvati e progressi apribili tra sessioni per gli stessi esercizi.
+Tracker palestra mobile-first per iPhone. Permette di registrare esercizi con serie indipendenti, peso e ripetizioni per ogni serie, pause preimpostate, durata della sessione, template allenamenti modificabili, storico allenamenti apribile, autocomplete sugli esercizi salvati e progressi apribili tra sessioni per gli stessi esercizi.
 
 ## Avvio locale
 

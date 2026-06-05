@@ -74,6 +74,32 @@
         </button>
       </form>
 
+      <section class="templates-panel" aria-label="Template allenamenti">
+        <details>
+          <summary>
+            <div>
+              <h2>Template</h2>
+              <span id="templateSummary">0 salvati</span>
+            </div>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          </summary>
+          <div class="template-editor">
+            <label class="field">
+              <span>Nome template</span>
+              <input id="templateName" type="text" inputmode="text" autocomplete="off" placeholder="Upper day" />
+            </label>
+            <button id="saveTemplate" type="button">Salva template</button>
+          </div>
+          <div id="templateEmpty" class="empty-state">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h10" />
+            </svg>
+            <p>Prepara una sessione e salvala come template.</p>
+          </div>
+          <ul id="templateList"></ul>
+        </details>
+      </section>
+
       <section class="workout-list" aria-label="Esercizi registrati">
         <div class="section-heading">
           <h2>Sessione</h2>
@@ -108,11 +134,19 @@
       </section>
 
       <section class="history-panel" aria-label="Storico allenamenti">
-        <div class="section-heading">
-          <h2>Storico</h2>
-          <button id="clearHistory" type="button">Reset</button>
-        </div>
-        <ul id="historyList"></ul>
+        <details>
+          <summary>
+            <div>
+              <h2>Storico</h2>
+              <span id="historySummary">0 sessioni</span>
+            </div>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          </summary>
+          <div class="panel-actions">
+            <button id="clearHistory" type="button">Reset</button>
+          </div>
+          <ul id="historyList"></ul>
+        </details>
       </section>
     </main>
 

@@ -1,12 +1,17 @@
 const state = {
   exercises: load("gym-log-current", []),
   history: load("gym-log-history", []),
+  templates: load("gym-log-templates", []),
   sessionStartedAt: load("gym-log-started-at", null),
 };
 
 const form = document.querySelector("#exerciseForm");
 const list = document.querySelector("#exerciseList");
 const historyList = document.querySelector("#historyList");
+const historySummary = document.querySelector("#historySummary");
+const templateList = document.querySelector("#templateList");
+const templateEmpty = document.querySelector("#templateEmpty");
+const templateSummary = document.querySelector("#templateSummary");
 const progressList = document.querySelector("#progressList");
 const progressEmpty = document.querySelector("#progressEmpty");
 const progressSummary = document.querySelector("#progressSummary");
@@ -33,6 +38,8 @@ document.querySelector("#addSet").addEventListener("click", () => {
   addSetRow(getLastSetValue());
 });
 
+document.querySelector("#saveTemplate").addEventListener("click", saveTemplateFromCurrent);
+
 document.querySelector("#exerciseName").addEventListener("input", renderExerciseSuggestions);
 
 document.querySelector("#exerciseName").addEventListener("focus", renderExerciseSuggestions);
@@ -56,6 +63,24 @@ setRows.addEventListener("click", (event) => {
   if (!button || setRows.children.length === 1) return;
   button.closest(".set-row").remove();
   syncSetLabels();
+});
+
+templateList.addEventListener("click", (event) => {
+  const loadButton = event.target.closest("[data-template-load]");
+  const updateButton = event.target.closest("[data-template-update]");
+  const deleteButton = event.target.closest("[data-template-delete]");
+
+  if (loadButton) {
+    loadTemplate(loadButton.dataset.templateLoad);
+  }
+
+  if (updateButton) {
+    updateTemplate(updateButton.dataset.templateUpdate);
+  }
+
+  if (deleteButton) {
+    deleteTemplate(deleteButton.dataset.templateDelete);
+  }
 });
 
 form.addEventListener("submit", (event) => {
@@ -130,7 +155,9 @@ function render() {
   emptyState.hidden = state.exercises.length > 0;
   list.innerHTML = state.exercises.map(renderExercise).join("");
   renderExerciseSuggestions();
+  renderTemplates();
   renderProgress();
+  renderHistorySummary();
   historyList.innerHTML = state.history.length ? state.history.map(renderHistory).join("") : "<li class=\"empty-state\">Nessun allenamento salvato.</li>";
 }
 
@@ -213,6 +240,46 @@ function renderSavedExercise(exercise) {
   `;
 }
 
+function renderTemplates() {
+  templateSummary.textContent = `${state.templates.length} salvati`;
+  templateEmpty.hidden = state.templates.length > 0;
+  templateList.innerHTML = state.templates.map(renderTemplate).join("");
+}
+
+function renderTemplate(template) {
+  const exerciseCount = template.exercises.length;
+  const sets = template.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
+
+  return `
+    <li class="template-card">
+      <details>
+        <summary>
+          <div>
+            <h3>${escapeHtml(template.name)}</h3>
+            <div class="stats">
+              <span>${exerciseCount} esercizi</span>
+              <span>${sets} serie</span>
+            </div>
+          </div>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </summary>
+        <div class="template-actions">
+          <button type="button" data-template-load="${template.id}">Carica</button>
+          <button type="button" data-template-update="${template.id}">Aggiorna</button>
+          <button type="button" data-template-delete="${template.id}">Elimina</button>
+        </div>
+        <ul class="saved-session-list">
+          ${template.exercises.map(renderSavedExercise).join("")}
+        </ul>
+      </details>
+    </li>
+  `;
+}
+
+function renderHistorySummary() {
+  historySummary.textContent = `${state.history.length} sessioni`;
+}
+
 function renderExerciseSuggestions() {
   const input = document.querySelector("#exerciseName");
   if (document.activeElement !== input) {
@@ -272,6 +339,78 @@ function renderProgressItem(item) {
       </div>
     </li>
   `;
+}
+
+function saveTemplateFromCurrent() {
+  if (!state.exercises.length) {
+    alert("Aggiungi almeno un esercizio alla sessione.");
+    return;
+  }
+
+  const name = value("#templateName");
+  if (!name) {
+    alert("Dai un nome al template.");
+    return;
+  }
+
+  const key = exerciseKey(name);
+  const existing = state.templates.find((template) => exerciseKey(template.name) === key);
+  const templateData = {
+    id: existing?.id ?? crypto.randomUUID(),
+    name,
+    exercises: cloneTemplateExercises(state.exercises),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existing) {
+    state.templates = state.templates.map((template) => template.id === existing.id ? templateData : template);
+  } else {
+    state.templates.unshift(templateData);
+  }
+
+  document.querySelector("#templateName").value = "";
+  saveTemplates();
+  render();
+}
+
+function loadTemplate(templateId) {
+  const template = state.templates.find((item) => item.id === templateId);
+  if (!template) return;
+
+  if (state.exercises.length && !confirm("Sostituire la sessione corrente con questo template?")) return;
+
+  state.exercises = cloneSessionExercises(template.exercises);
+  state.sessionStartedAt = new Date().toISOString();
+  saveCurrent();
+  render();
+}
+
+function updateTemplate(templateId) {
+  if (!state.exercises.length) {
+    alert("Aggiungi almeno un esercizio alla sessione.");
+    return;
+  }
+
+  state.templates = state.templates.map((template) => {
+    if (template.id !== templateId) return template;
+
+    return {
+      ...template,
+      exercises: cloneTemplateExercises(state.exercises),
+      updatedAt: new Date().toISOString(),
+    };
+  });
+
+  saveTemplates();
+  render();
+}
+
+function deleteTemplate(templateId) {
+  if (!confirm("Cancellare questo template?")) return;
+
+  state.templates = state.templates.filter((template) => template.id !== templateId);
+  saveTemplates();
+  render();
 }
 
 function value(selector) {
@@ -343,6 +482,30 @@ function normalizeSets(exercise) {
   }));
 }
 
+function cloneTemplateExercises(exercises) {
+  return exercises.map((exercise) => ({
+    name: exercise.name,
+    rest: exercise.rest ?? 90,
+    sets: normalizeSets(exercise).map((set) => ({
+      weight: set.weight,
+      reps: set.reps,
+    })),
+  }));
+}
+
+function cloneSessionExercises(exercises) {
+  return exercises.map((exercise) => ({
+    id: crypto.randomUUID(),
+    name: exercise.name,
+    rest: exercise.rest ?? 90,
+    sets: normalizeSets(exercise).map((set) => ({
+      weight: set.weight,
+      reps: set.reps,
+    })),
+    createdAt: new Date().toISOString(),
+  }));
+}
+
 function getProgressItems() {
   const performances = new Map();
 
@@ -382,6 +545,14 @@ function getExerciseSuggestions(query = "") {
 
   state.history.forEach((workout) => {
     workout.exercises.forEach((exercise) => {
+      const key = exerciseKey(exercise.name);
+      if (!key || suggestions.has(key)) return;
+      suggestions.set(key, exercise.name.trim());
+    });
+  });
+
+  state.templates.forEach((template) => {
+    template.exercises.forEach((exercise) => {
       const key = exerciseKey(exercise.name);
       if (!key || suggestions.has(key)) return;
       suggestions.set(key, exercise.name.trim());
@@ -515,6 +686,7 @@ function load(key, fallback) {
 function persist() {
   saveCurrent();
   localStorage.setItem("gym-log-history", JSON.stringify(state.history));
+  saveTemplates();
 }
 
 function saveCurrent() {
@@ -524,6 +696,10 @@ function saveCurrent() {
   } else {
     localStorage.removeItem("gym-log-started-at");
   }
+}
+
+function saveTemplates() {
+  localStorage.setItem("gym-log-templates", JSON.stringify(state.templates));
 }
 
 function escapeHtml(text) {
