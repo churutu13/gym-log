@@ -26,7 +26,7 @@ Su iPhone puoi aprirla da Safari e usare "Aggiungi alla schermata Home".
 
 Quando il workflow finisce, apri l'URL di GitHub Pages da Safari su iPhone e usa "Aggiungi alla schermata Home".
 
-L'app ha un service worker (`sw.js`) che mette in cache i file principali per usarla anche offline dopo il primo caricamento.
+L'app ha un service worker (`sw.js`) che mette in cache i file principali per usarla anche offline dopo il primo caricamento e controlla la rete prima della cache quando sei online.
 
 ## File
 

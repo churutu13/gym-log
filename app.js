@@ -82,7 +82,7 @@ form.addEventListener("submit", (event) => {
   resetSetRows();
   syncRestButtons();
   hideExerciseSuggestions();
-  document.querySelector("#exerciseName").focus();
+  document.activeElement?.blur();
   render();
 });
 
@@ -542,6 +542,8 @@ setInterval(renderDuration, 1000);
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    navigator.serviceWorker.register("./sw.js").then((registration) => {
+      registration.update();
+    }).catch(() => {});
   });
 }
