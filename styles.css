@@ -297,6 +297,44 @@ svg {
   margin-top: 12px;
 }
 
+.progress-panel details {
+  display: grid;
+  gap: 10px;
+}
+
+.progress-panel summary {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.progress-panel summary::-webkit-details-marker {
+  display: none;
+}
+
+.progress-panel summary span {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.progress-panel summary svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.progress-panel details[open] summary svg {
+  transform: rotate(180deg);
+}
+
 .section-heading {
   display: flex;
   align-items: center;
@@ -436,7 +474,7 @@ ul {
 .progress-grid div {
   display: grid;
   gap: 3px;
-  min-height: 78px;
+  min-height: 82px;
   border-radius: var(--radius);
   background: var(--panel);
   padding: 9px;

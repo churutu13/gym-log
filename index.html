@@ -89,17 +89,22 @@
       </section>
 
       <section class="progress-panel" aria-label="Progressive overload">
-        <div class="section-heading">
-          <h2>Progressi</h2>
-          <span>Ultima vs precedente</span>
-        </div>
-        <div id="progressEmpty" class="empty-state">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m4 16 5-5 4 4 7-8M15 7h5v5" />
-          </svg>
-          <p>Salva almeno due sessioni con lo stesso esercizio per vedere il progresso.</p>
-        </div>
-        <ul id="progressList"></ul>
+        <details>
+          <summary>
+            <div>
+              <h2>Progressi</h2>
+              <span id="progressSummary">Ultima vs precedente</span>
+            </div>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+          </summary>
+          <div id="progressEmpty" class="empty-state">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m4 16 5-5 4 4 7-8M15 7h5v5" />
+            </svg>
+            <p>Salva almeno due sessioni con lo stesso esercizio per vedere il progresso.</p>
+          </div>
+          <ul id="progressList"></ul>
+        </details>
       </section>
 
       <section class="history-panel" aria-label="Storico allenamenti">

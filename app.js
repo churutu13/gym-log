@@ -9,6 +9,7 @@ const list = document.querySelector("#exerciseList");
 const historyList = document.querySelector("#historyList");
 const progressList = document.querySelector("#progressList");
 const progressEmpty = document.querySelector("#progressEmpty");
+const progressSummary = document.querySelector("#progressSummary");
 const exerciseSuggestions = document.querySelector("#exerciseSuggestions");
 const emptyState = document.querySelector("#emptyState");
 const setRows = document.querySelector("#setRows");
@@ -235,6 +236,9 @@ function hideExerciseSuggestions() {
 function renderProgress() {
   const progressItems = getProgressItems();
 
+  progressSummary.textContent = progressItems.length
+    ? `${progressItems.length} esercizi monitorati`
+    : "Ultima vs precedente";
   progressEmpty.hidden = progressItems.length > 0;
   progressList.innerHTML = progressItems.map(renderProgressItem).join("");
 }
@@ -247,23 +251,23 @@ function renderProgressItem(item) {
           <h3>${escapeHtml(item.name)}</h3>
           <span>${formatDate(item.latest.date)} vs ${formatDate(item.previous.date)}</span>
         </div>
-        <strong class="${deltaClass(item.bestSetDelta)}">${formatSigned(item.bestSetDelta)} kg</strong>
+        <strong class="${deltaClass(item.strengthDelta)}">${formatSigned(item.strengthDelta)} kg</strong>
       </header>
       <div class="progress-grid">
         <div>
-          <span>Peso max</span>
-          <strong>${formatNumber(item.latest.maxWeight)} kg</strong>
-          <small class="${deltaClass(item.maxWeightDelta)}">${formatSigned(item.maxWeightDelta)} kg</small>
-        </div>
-        <div>
-          <span>Rip. totali</span>
-          <strong>${item.latest.totalReps}</strong>
-          <small class="${deltaClass(item.totalRepsDelta)}">${formatSigned(item.totalRepsDelta, 0)}</small>
+          <span>Forza stimata</span>
+          <strong>${formatNumber(item.latest.estimatedStrength)} kg</strong>
+          <small class="${deltaClass(item.strengthDelta)}">${formatSigned(item.strengthDelta)} kg</small>
         </div>
         <div>
           <span>Miglior set</span>
           <strong>${formatNumber(item.latest.bestSet.weight)} kg x ${item.latest.bestSet.reps}</strong>
-          <small>stima ${formatNumber(item.latest.bestSetScore)} kg</small>
+          <small>${formatNumber(item.previous.bestSet.weight)} kg x ${item.previous.bestSet.reps}</small>
+        </div>
+        <div>
+          <span>Peso / reps</span>
+          <strong>${formatSigned(item.maxWeightDelta)} kg</strong>
+          <small class="${deltaClass(item.totalRepsDelta)}">${formatSigned(item.totalRepsDelta, 0)} rip. totali</small>
         </div>
       </div>
     </li>
@@ -366,10 +370,10 @@ function getProgressItems() {
         previous,
         maxWeightDelta: latest.maxWeight - previous.maxWeight,
         totalRepsDelta: latest.totalReps - previous.totalReps,
-        bestSetDelta: latest.bestSetScore - previous.bestSetScore,
+        strengthDelta: latest.estimatedStrength - previous.estimatedStrength,
       };
     })
-    .sort((a, b) => Math.abs(b.bestSetDelta) - Math.abs(a.bestSetDelta));
+    .sort((a, b) => Math.abs(b.strengthDelta) - Math.abs(a.strengthDelta));
 }
 
 function getExerciseSuggestions(query = "") {
@@ -424,7 +428,7 @@ function groupExercisesByName(exercises) {
 function buildPerformance(key, exerciseGroup, date) {
   const cleanSets = exerciseGroup.sets.filter((set) => Number.isFinite(set.weight) && Number.isFinite(set.reps));
   const bestSet = cleanSets.reduce((best, set) => {
-    return bestSetScore(set) > bestSetScore(best) ? set : best;
+    return estimatedStrength(set) > estimatedStrength(best) ? set : best;
   }, cleanSets[0] ?? { weight: 0, reps: 0 });
 
   return {
@@ -434,11 +438,11 @@ function buildPerformance(key, exerciseGroup, date) {
     maxWeight: Math.max(...cleanSets.map((set) => set.weight), 0),
     totalReps: cleanSets.reduce((sum, set) => sum + set.reps, 0),
     bestSet,
-    bestSetScore: bestSetScore(bestSet),
+    estimatedStrength: estimatedStrength(bestSet),
   };
 }
 
-function bestSetScore(set) {
+function estimatedStrength(set) {
   return set.weight * (1 + set.reps / 30);
 }
 
