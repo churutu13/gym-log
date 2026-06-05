@@ -19,11 +19,6 @@
           <p class="eyebrow">Allenamento</p>
           <h1>Gym Log</h1>
         </div>
-        <button class="icon-button" id="clearWorkout" type="button" aria-label="Svuota allenamento">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 7h16M10 11v6M14 11v6M6 7l1 14h10l1-14M9 7V4h6v3" />
-          </svg>
-        </button>
       </header>
 
       <section class="session-summary" aria-label="Riepilogo allenamento">
@@ -44,9 +39,9 @@
       <form class="entry-panel" id="exerciseForm">
         <label class="field field-wide">
           <span>Esercizio</span>
-          <input id="exerciseName" type="text" inputmode="text" autocomplete="off" list="exerciseSuggestions" placeholder="Panca piana" required />
-          <datalist id="exerciseSuggestions"></datalist>
+          <input id="exerciseName" type="text" inputmode="text" autocomplete="off" placeholder="Panca piana" required />
         </label>
+        <div id="exerciseSuggestions" class="suggestions" hidden></div>
 
         <div class="set-builder">
           <div class="set-heading">

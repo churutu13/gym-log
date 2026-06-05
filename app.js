@@ -32,6 +32,24 @@ document.querySelector("#addSet").addEventListener("click", () => {
   addSetRow(getLastSetValue());
 });
 
+document.querySelector("#exerciseName").addEventListener("input", renderExerciseSuggestions);
+
+document.querySelector("#exerciseName").addEventListener("focus", renderExerciseSuggestions);
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest(".field-wide") || event.target.closest("#exerciseSuggestions")) return;
+  hideExerciseSuggestions();
+});
+
+exerciseSuggestions.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-suggestion]");
+  if (!button) return;
+
+  document.querySelector("#exerciseName").value = button.dataset.suggestion;
+  hideExerciseSuggestions();
+  setRows.querySelector("[name='weight']").focus();
+});
+
 setRows.addEventListener("click", (event) => {
   const button = event.target.closest("[data-remove-set]");
   if (!button || setRows.children.length === 1) return;
@@ -46,10 +64,12 @@ form.addEventListener("submit", (event) => {
     state.sessionStartedAt = new Date().toISOString();
   }
 
+  const sets = getSetValues();
+
   const exercise = {
     id: crypto.randomUUID(),
     name: value("#exerciseName"),
-    sets: getSetValues(),
+    sets,
     rest: selectedRest,
     createdAt: new Date().toISOString(),
   };
@@ -58,17 +78,10 @@ form.addEventListener("submit", (event) => {
   saveCurrent();
   form.reset();
   selectedRest = exercise.rest;
-  resetSetRows(exercise.sets.at(-1));
+  resetSetRows();
   syncRestButtons();
+  hideExerciseSuggestions();
   document.querySelector("#exerciseName").focus();
-  render();
-});
-
-document.querySelector("#clearWorkout").addEventListener("click", () => {
-  if (!state.exercises.length || !confirm("Svuotare la sessione corrente?")) return;
-  state.exercises = [];
-  state.sessionStartedAt = null;
-  saveCurrent();
   render();
 });
 
@@ -154,7 +167,7 @@ function renderExercise(exercise) {
 function renderHistory(workout) {
   const exerciseCount = workout.exercises.length;
   const sets = workout.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
-  const date = new Intl.DateTimeFormat("it-IT", { dateStyle: "medium", timeStyle: "short" }).format(new Date(workout.date));
+  const date = formatHistoryDate(workout.date);
 
   return `
     <li class="history-card">
@@ -200,9 +213,23 @@ function renderSavedExercise(exercise) {
 }
 
 function renderExerciseSuggestions() {
-  exerciseSuggestions.innerHTML = getExerciseSuggestions()
-    .map((name) => `<option value="${escapeAttribute(name)}"></option>`)
+  const input = document.querySelector("#exerciseName");
+  if (document.activeElement !== input) {
+    hideExerciseSuggestions();
+    return;
+  }
+
+  const query = value("#exerciseName");
+  const matches = getExerciseSuggestions(query).slice(0, 6);
+
+  exerciseSuggestions.hidden = matches.length === 0;
+  exerciseSuggestions.innerHTML = matches
+    .map((name) => `<button type="button" data-suggestion="${escapeAttribute(name)}">${highlightSuggestion(name, query)}</button>`)
     .join("");
+}
+
+function hideExerciseSuggestions() {
+  exerciseSuggestions.hidden = true;
 }
 
 function renderProgress() {
@@ -247,7 +274,7 @@ function value(selector) {
   return document.querySelector(selector).value.trim();
 }
 
-function addSetRow(set = { reps: 10, weight: 40 }) {
+function addSetRow(set = { reps: "", weight: "" }) {
   const row = document.createElement("div");
   row.className = "set-row";
   row.innerHTML = `
@@ -268,7 +295,7 @@ function addSetRow(set = { reps: 10, weight: 40 }) {
   syncSetLabels();
 }
 
-function resetSetRows(lastSet = { reps: 10, weight: 40 }) {
+function resetSetRows(lastSet = { reps: "", weight: "" }) {
   setRows.innerHTML = "";
   addSetRow(lastSet);
   addSetRow(lastSet);
@@ -296,7 +323,11 @@ function getSetValues() {
 }
 
 function getLastSetValue() {
-  return getSetValues().at(-1) ?? { reps: 10, weight: 40 };
+  const lastSet = getSetValues().at(-1);
+  if (!lastSet || !lastSet.weight || !lastSet.reps) {
+    return { reps: "", weight: "" };
+  }
+  return lastSet;
 }
 
 function normalizeSets(exercise) {
@@ -341,8 +372,9 @@ function getProgressItems() {
     .sort((a, b) => Math.abs(b.bestSetDelta) - Math.abs(a.bestSetDelta));
 }
 
-function getExerciseSuggestions() {
+function getExerciseSuggestions(query = "") {
   const suggestions = new Map();
+  const normalizedQuery = exerciseKey(query);
 
   state.history.forEach((workout) => {
     workout.exercises.forEach((exercise) => {
@@ -352,7 +384,24 @@ function getExerciseSuggestions() {
     });
   });
 
-  return [...suggestions.values()];
+  return [...suggestions.values()].filter((name) => {
+    if (!normalizedQuery) return true;
+    return exerciseKey(name).includes(normalizedQuery);
+  });
+}
+
+function highlightSuggestion(name, query) {
+  const normalizedName = exerciseKey(name);
+  const normalizedQuery = exerciseKey(query);
+  const index = normalizedQuery ? normalizedName.indexOf(normalizedQuery) : -1;
+
+  if (index === -1) return escapeHtml(name);
+
+  const before = name.slice(0, index);
+  const match = name.slice(index, index + query.length);
+  const after = name.slice(index + query.length);
+
+  return `${escapeHtml(before)}<mark>${escapeHtml(match)}</mark>${escapeHtml(after)}`;
 }
 
 function groupExercisesByName(exercises) {
@@ -413,6 +462,15 @@ function formatSigned(number, fractionDigits = 1) {
 
 function formatDate(date) {
   return new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short" }).format(new Date(date));
+}
+
+function formatHistoryDate(date) {
+  return new Intl.DateTimeFormat("it-IT", {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(date));
 }
 
 function deltaClass(number) {
