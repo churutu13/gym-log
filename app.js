@@ -53,6 +53,7 @@ document.querySelector("#addSet").addEventListener("click", () => {
 
 document.querySelector("#saveTemplate").addEventListener("click", saveTemplateFromCurrent);
 document.querySelector("#saveTemplatePage").addEventListener("click", saveTemplateFromCurrent);
+document.querySelector("#createBlankTemplate").addEventListener("click", createBlankTemplate);
 document.querySelector("#newWorkoutButton").addEventListener("click", openStartPanel);
 document.querySelector("#startBlankWorkout").addEventListener("click", startBlankWorkout);
 document.querySelector("#finishOnboarding").addEventListener("click", finishOnboarding);
@@ -70,6 +71,13 @@ document.querySelector("#exerciseName").addEventListener("focus", renderExercise
 document.addEventListener("click", (event) => {
   if (event.target.closest(".field-wide") || event.target.closest("#exerciseSuggestions")) return;
   hideExerciseSuggestions();
+});
+
+document.addEventListener("click", (event) => {
+  const startPanel = document.querySelector("#startPanel");
+  if (startPanel.hidden) return;
+  if (event.target.closest("#startPanel") || event.target.closest("#newWorkoutButton")) return;
+  startPanel.hidden = true;
 });
 
 exerciseSuggestions.addEventListener("click", (event) => {
@@ -209,6 +217,7 @@ function showView(viewName) {
   Object.entries(views).forEach(([name, view]) => {
     view.hidden = name !== viewName;
   });
+  document.querySelector("#startPanel").hidden = true;
   render();
 }
 
@@ -217,7 +226,8 @@ function openStartPanel() {
     state.sessionStartedAt = new Date().toISOString();
     saveCurrent();
   }
-  document.querySelector("#startPanel").hidden = false;
+  const startPanel = document.querySelector("#startPanel");
+  startPanel.hidden = !startPanel.hidden;
   renderStartTemplates();
   renderDuration();
 }
@@ -274,7 +284,7 @@ function render() {
 
 function renderProfile() {
   const profile = state.profile ?? { name: "Roberto", weight: "", age: "" };
-  document.querySelector("#welcomeTitle").textContent = `Benvenuto ${profile.name || "Roberto"}`;
+  document.querySelector("#welcomeTitle").textContent = `Benvenuto, ${profile.name || "Roberto"}`;
   document.querySelector("#profileName").value = profile.name ?? "";
   document.querySelector("#profileWeight").value = profile.weight ?? "";
   document.querySelector("#profileAge").value = profile.age ?? "";
@@ -497,12 +507,46 @@ function saveTemplateFromCurrent() {
     return;
   }
 
+  saveTemplateFromExercises(name, state.exercises);
+
+  document.querySelector("#templateName").value = "";
+  document.querySelector("#templateNamePage").value = "";
+  saveTemplates();
+  render();
+}
+
+function createBlankTemplate() {
+  const name = value("#templateNamePage");
+  if (!name) {
+    alert("Dai un nome all'allenamento.");
+    return;
+  }
+
+  const key = exerciseKey(name);
+  if (state.templates.some((template) => exerciseKey(template.name) === key)) {
+    alert("Esiste già un allenamento con questo nome.");
+    return;
+  }
+
+  state.templates.unshift({
+    id: crypto.randomUUID(),
+    name,
+    exercises: [],
+    updatedAt: new Date().toISOString(),
+  });
+
+  document.querySelector("#templateNamePage").value = "";
+  saveTemplates();
+  render();
+}
+
+function saveTemplateFromExercises(name, exercises) {
   const key = exerciseKey(name);
   const existing = state.templates.find((template) => exerciseKey(template.name) === key);
   const templateData = {
     id: existing?.id ?? crypto.randomUUID(),
     name,
-    exercises: cloneTemplateExercises(state.exercises),
+    exercises: cloneTemplateExercises(exercises),
     updatedAt: new Date().toISOString(),
   };
 
@@ -511,11 +555,6 @@ function saveTemplateFromCurrent() {
   } else {
     state.templates.unshift(templateData);
   }
-
-  document.querySelector("#templateName").value = "";
-  document.querySelector("#templateNamePage").value = "";
-  saveTemplates();
-  render();
 }
 
 function saveTemplateFromHistory(workoutId) {
@@ -526,20 +565,7 @@ function saveTemplateFromHistory(workoutId) {
   const name = prompt("Nome template", fallbackName);
   if (!name) return;
 
-  const key = exerciseKey(name);
-  const existing = state.templates.find((template) => exerciseKey(template.name) === key);
-  const templateData = {
-    id: existing?.id ?? crypto.randomUUID(),
-    name,
-    exercises: cloneTemplateExercises(workout.exercises),
-    updatedAt: new Date().toISOString(),
-  };
-
-  if (existing) {
-    state.templates = state.templates.map((template) => template.id === existing.id ? templateData : template);
-  } else {
-    state.templates.unshift(templateData);
-  }
+  saveTemplateFromExercises(name, workout.exercises);
 
   saveTemplates();
   render();

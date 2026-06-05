@@ -47,11 +47,11 @@
       <section class="view home-view" id="homeView" hidden>
         <header class="home-hero">
           <p class="eyebrow">Gym Log</p>
-          <h1 id="welcomeTitle">Benvenuto Roberto</h1>
+          <h1 id="welcomeTitle">Benvenuto, Roberto</h1>
         </header>
         <div class="home-actions">
           <button id="newWorkoutButton" type="button">
-            <span>Inizia nuovo allenamento</span>
+            <span>Inizia allenamento</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           </button>
           <button data-view-target="progress" type="button">
@@ -59,7 +59,7 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 5-5 4 4 7-8M15 7h5v5" /></svg>
           </button>
           <button data-view-target="templates" type="button">
-            <span>Crea/modifica allenamento</span>
+            <span>I tuoi allenamenti</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
           </button>
           <button data-view-target="profile" type="button">
@@ -68,9 +68,7 @@
           </button>
         </div>
         <section class="start-panel" id="startPanel" hidden>
-          <div class="section-heading">
-            <h2>Da dove parti?</h2>
-          </div>
+          <h2>Inizia allenamento</h2>
           <button class="primary-action" id="startBlankWorkout" type="button">Da zero</button>
           <div id="startTemplateEmpty" class="empty-state">Nessun template salvato.</div>
           <ul id="startTemplateList"></ul>
@@ -221,18 +219,21 @@
         <header class="topbar">
           <div>
             <p class="eyebrow">Programmi</p>
-            <h1>Template</h1>
+            <h1>I tuoi allenamenti</h1>
           </div>
           <button class="ghost-button" data-view-target="home" type="button">Home</button>
         </header>
-        <p class="muted-copy">Crea template dalla sessione attiva o da una sessione salvata nello storico.</p>
+        <p class="muted-copy">Crea allenamenti da zero, dalla sessione attiva o da una sessione salvata nello storico.</p>
         <section class="templates-panel">
           <div class="template-editor">
             <label class="field">
               <span>Nome template</span>
               <input id="templateNamePage" type="text" inputmode="text" autocomplete="off" placeholder="Upper day" />
             </label>
-            <button id="saveTemplatePage" type="button">Salva dalla sessione attiva</button>
+            <div class="template-create-actions">
+              <button id="createBlankTemplate" type="button">Crea da zero</button>
+              <button id="saveTemplatePage" type="button">Salva dalla sessione attiva</button>
+            </div>
           </div>
           <div id="templatePageEmpty" class="empty-state">Nessun template salvato.</div>
           <ul id="templatePageList"></ul>

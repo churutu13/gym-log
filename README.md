@@ -1,6 +1,6 @@
 # Gym Log
 
-Tracker palestra mobile-first per iPhone. Include onboarding profilo, home iniziale, sessioni attive, progressi dedicati, template allenamenti modificabili, storico apribile, autocomplete sugli esercizi salvati e confronto progressivo tra sessioni per gli stessi esercizi.
+Tracker palestra mobile-first per iPhone. Include onboarding profilo, home iniziale, sessioni attive, progressi dedicati, "I tuoi allenamenti" per template modificabili, storico apribile, autocomplete sugli esercizi salvati e confronto progressivo tra sessioni per gli stessi esercizi.
 
 ## Avvio locale
 
