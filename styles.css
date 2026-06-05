@@ -74,6 +74,121 @@ h2 {
   font-size: 1.05rem;
 }
 
+.view[hidden] {
+  display: none;
+}
+
+.home-hero {
+  min-height: 170px;
+  display: grid;
+  align-content: end;
+  margin-bottom: 16px;
+}
+
+.home-hero h1 {
+  font-size: 2.35rem;
+  line-height: 1.02;
+}
+
+.home-actions,
+.start-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.home-actions button,
+.start-template-button,
+.ghost-button {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(27, 31, 35, 0.92);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.home-actions button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 62px;
+  padding: 0 14px;
+  font-size: 1rem;
+  font-weight: 850;
+}
+
+.home-actions svg {
+  color: var(--accent);
+}
+
+.ghost-button {
+  min-height: 38px;
+  padding: 0 12px;
+  font-weight: 800;
+}
+
+.start-panel {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(27, 31, 35, 0.92);
+}
+
+.start-template-button {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-weight: 800;
+}
+
+.start-template-button small,
+.muted-copy {
+  color: var(--muted);
+}
+
+.muted-copy {
+  margin-bottom: 12px;
+}
+
+.onboarding-view {
+  min-height: 100svh;
+}
+
+.onboarding-track {
+  display: grid;
+  gap: 16px;
+  max-height: calc(100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 36px);
+  overflow-y: auto;
+  scroll-snap-type: y mandatory;
+  padding-bottom: 42px;
+}
+
+.onboarding-card {
+  display: grid;
+  min-height: min(72svh, 620px);
+  align-content: center;
+  gap: 16px;
+  scroll-snap-align: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: rgba(27, 31, 35, 0.94);
+  padding: 22px;
+}
+
+.onboarding-card:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(96, 211, 148, 0.15);
+}
+
+.onboarding-card h1,
+.onboarding-card h2 {
+  font-size: 2rem;
+  line-height: 1.05;
+}
+
 .section-heading button,
 .set-heading button,
 .quick-row button,
@@ -367,6 +482,10 @@ svg {
   gap: 8px;
   padding-top: 10px;
   border-top: 1px solid var(--line);
+}
+
+.template-actions.single-action {
+  grid-template-columns: 1fr;
 }
 
 .template-actions button:last-child {

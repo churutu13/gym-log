@@ -2,18 +2,31 @@ const state = {
   exercises: load("gym-log-current", []),
   history: load("gym-log-history", []),
   templates: load("gym-log-templates", []),
+  profile: load("gym-log-profile", null),
   sessionStartedAt: load("gym-log-started-at", null),
 };
 
+const views = {
+  onboarding: document.querySelector("#onboardingView"),
+  home: document.querySelector("#homeView"),
+  workout: document.querySelector("#workoutView"),
+  progress: document.querySelector("#progressView"),
+  templates: document.querySelector("#templatesView"),
+  profile: document.querySelector("#profileView"),
+};
 const form = document.querySelector("#exerciseForm");
 const list = document.querySelector("#exerciseList");
 const historyList = document.querySelector("#historyList");
 const historySummary = document.querySelector("#historySummary");
 const templateList = document.querySelector("#templateList");
+const templatePageList = document.querySelector("#templatePageList");
 const templateEmpty = document.querySelector("#templateEmpty");
+const templatePageEmpty = document.querySelector("#templatePageEmpty");
 const templateSummary = document.querySelector("#templateSummary");
 const progressList = document.querySelector("#progressList");
+const progressPageList = document.querySelector("#progressPageList");
 const progressEmpty = document.querySelector("#progressEmpty");
+const progressPageEmpty = document.querySelector("#progressPageEmpty");
 const progressSummary = document.querySelector("#progressSummary");
 const exerciseSuggestions = document.querySelector("#exerciseSuggestions");
 const emptyState = document.querySelector("#emptyState");
@@ -39,6 +52,16 @@ document.querySelector("#addSet").addEventListener("click", () => {
 });
 
 document.querySelector("#saveTemplate").addEventListener("click", saveTemplateFromCurrent);
+document.querySelector("#saveTemplatePage").addEventListener("click", saveTemplateFromCurrent);
+document.querySelector("#newWorkoutButton").addEventListener("click", openStartPanel);
+document.querySelector("#startBlankWorkout").addEventListener("click", startBlankWorkout);
+document.querySelector("#finishOnboarding").addEventListener("click", finishOnboarding);
+
+document.querySelectorAll("[data-view-target]").forEach((button) => {
+  button.addEventListener("click", () => {
+    showView(button.dataset.viewTarget);
+  });
+});
 
 document.querySelector("#exerciseName").addEventListener("input", renderExerciseSuggestions);
 
@@ -66,9 +89,36 @@ setRows.addEventListener("click", (event) => {
 });
 
 templateList.addEventListener("click", (event) => {
+  handleTemplateListClick(event);
+});
+
+templatePageList.addEventListener("click", (event) => {
+  handleTemplateListClick(event);
+});
+
+document.querySelector("#startTemplateList").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-start-template]");
+  if (!button) return;
+  startTemplateWorkout(button.dataset.startTemplate);
+});
+
+document.querySelector("#profileForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  state.profile = {
+    name: value("#profileName") || "Roberto",
+    weight: value("#profileWeight"),
+    age: value("#profileAge"),
+  };
+  saveProfile();
+  render();
+  showView("home");
+});
+
+function handleTemplateListClick(event) {
   const loadButton = event.target.closest("[data-template-load]");
   const updateButton = event.target.closest("[data-template-update]");
   const deleteButton = event.target.closest("[data-template-delete]");
+  const historyButton = event.target.closest("[data-history-template]");
 
   if (loadButton) {
     loadTemplate(loadButton.dataset.templateLoad);
@@ -81,7 +131,11 @@ templateList.addEventListener("click", (event) => {
   if (deleteButton) {
     deleteTemplate(deleteButton.dataset.templateDelete);
   }
-});
+
+  if (historyButton) {
+    saveTemplateFromHistory(historyButton.dataset.historyTemplate);
+  }
+}
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();
@@ -145,9 +199,64 @@ list.addEventListener("click", (event) => {
   render();
 });
 
+historyList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-history-template]");
+  if (!button) return;
+  saveTemplateFromHistory(button.dataset.historyTemplate);
+});
+
+function showView(viewName) {
+  Object.entries(views).forEach(([name, view]) => {
+    view.hidden = name !== viewName;
+  });
+  render();
+}
+
+function openStartPanel() {
+  if (!state.sessionStartedAt) {
+    state.sessionStartedAt = new Date().toISOString();
+    saveCurrent();
+  }
+  document.querySelector("#startPanel").hidden = false;
+  renderStartTemplates();
+  renderDuration();
+}
+
+function startBlankWorkout() {
+  if (state.exercises.length && !confirm("Sostituire la sessione corrente?")) return;
+  state.exercises = [];
+  state.sessionStartedAt = state.sessionStartedAt ?? new Date().toISOString();
+  saveCurrent();
+  render();
+  showView("workout");
+}
+
+function startTemplateWorkout(templateId) {
+  const template = state.templates.find((item) => item.id === templateId);
+  if (!template) return;
+  if (state.exercises.length && !confirm("Sostituire la sessione corrente?")) return;
+  state.exercises = cloneSessionExercises(template.exercises);
+  state.sessionStartedAt = state.sessionStartedAt ?? new Date().toISOString();
+  saveCurrent();
+  render();
+  showView("workout");
+}
+
+function finishOnboarding() {
+  state.profile = {
+    name: value("#profileNameSetup") || "Roberto",
+    weight: value("#profileWeightSetup"),
+    age: value("#profileAgeSetup"),
+  };
+  saveProfile();
+  render();
+  showView("home");
+}
+
 function render() {
   const totalSets = state.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
 
+  renderProfile();
   document.querySelector("#summaryExercises").textContent = state.exercises.length;
   document.querySelector("#summarySets").textContent = totalSets;
   renderDuration();
@@ -156,9 +265,19 @@ function render() {
   list.innerHTML = state.exercises.map(renderExercise).join("");
   renderExerciseSuggestions();
   renderTemplates();
+  renderStartTemplates();
   renderProgress();
+  renderProgressPage();
   renderHistorySummary();
   historyList.innerHTML = state.history.length ? state.history.map(renderHistory).join("") : "<li class=\"empty-state\">Nessun allenamento salvato.</li>";
+}
+
+function renderProfile() {
+  const profile = state.profile ?? { name: "Roberto", weight: "", age: "" };
+  document.querySelector("#welcomeTitle").textContent = `Benvenuto ${profile.name || "Roberto"}`;
+  document.querySelector("#profileName").value = profile.name ?? "";
+  document.querySelector("#profileWeight").value = profile.weight ?? "";
+  document.querySelector("#profileAge").value = profile.age ?? "";
 }
 
 function renderDuration() {
@@ -214,6 +333,9 @@ function renderHistory(workout) {
         <ul class="saved-session-list">
           ${workout.exercises.map(renderSavedExercise).join("")}
         </ul>
+        <div class="template-actions single-action">
+          <button type="button" data-history-template="${workout.id}">Salva come template</button>
+        </div>
       </details>
     </li>
   `;
@@ -244,6 +366,22 @@ function renderTemplates() {
   templateSummary.textContent = `${state.templates.length} salvati`;
   templateEmpty.hidden = state.templates.length > 0;
   templateList.innerHTML = state.templates.map(renderTemplate).join("");
+  templatePageEmpty.hidden = state.templates.length > 0;
+  templatePageList.innerHTML = state.templates.map(renderTemplate).join("");
+}
+
+function renderStartTemplates() {
+  const list = document.querySelector("#startTemplateList");
+  const empty = document.querySelector("#startTemplateEmpty");
+  empty.hidden = state.templates.length > 0;
+  list.innerHTML = state.templates.map((template) => `
+    <li class="template-card">
+      <button class="start-template-button" type="button" data-start-template="${template.id}">
+        <span>${escapeHtml(template.name)}</span>
+        <small>${template.exercises.length} esercizi</small>
+      </button>
+    </li>
+  `).join("");
 }
 
 function renderTemplate(template) {
@@ -310,6 +448,12 @@ function renderProgress() {
   progressList.innerHTML = progressItems.map(renderProgressItem).join("");
 }
 
+function renderProgressPage() {
+  const progressItems = getProgressItems();
+  progressPageEmpty.hidden = progressItems.length > 0;
+  progressPageList.innerHTML = progressItems.map(renderProgressItem).join("");
+}
+
 function renderProgressItem(item) {
   return `
     <li class="progress-card">
@@ -347,7 +491,7 @@ function saveTemplateFromCurrent() {
     return;
   }
 
-  const name = value("#templateName");
+  const name = value("#templateName") || value("#templateNamePage");
   if (!name) {
     alert("Dai un nome al template.");
     return;
@@ -369,6 +513,34 @@ function saveTemplateFromCurrent() {
   }
 
   document.querySelector("#templateName").value = "";
+  document.querySelector("#templateNamePage").value = "";
+  saveTemplates();
+  render();
+}
+
+function saveTemplateFromHistory(workoutId) {
+  const workout = state.history.find((item) => item.id === workoutId);
+  if (!workout) return;
+
+  const fallbackName = `Template ${formatHistoryDate(workout.date)}`;
+  const name = prompt("Nome template", fallbackName);
+  if (!name) return;
+
+  const key = exerciseKey(name);
+  const existing = state.templates.find((template) => exerciseKey(template.name) === key);
+  const templateData = {
+    id: existing?.id ?? crypto.randomUUID(),
+    name,
+    exercises: cloneTemplateExercises(workout.exercises),
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existing) {
+    state.templates = state.templates.map((template) => template.id === existing.id ? templateData : template);
+  } else {
+    state.templates.unshift(templateData);
+  }
+
   saveTemplates();
   render();
 }
@@ -383,6 +555,7 @@ function loadTemplate(templateId) {
   state.sessionStartedAt = new Date().toISOString();
   saveCurrent();
   render();
+  showView("workout");
 }
 
 function updateTemplate(templateId) {
@@ -702,6 +875,10 @@ function saveTemplates() {
   localStorage.setItem("gym-log-templates", JSON.stringify(state.templates));
 }
 
+function saveProfile() {
+  localStorage.setItem("gym-log-profile", JSON.stringify(state.profile));
+}
+
 function escapeHtml(text) {
   const node = document.createElement("span");
   node.textContent = text;
@@ -714,6 +891,7 @@ function escapeAttribute(text) {
 
 resetSetRows();
 render();
+showView(state.profile ? "home" : "onboarding");
 setInterval(renderDuration, 1000);
 
 if ("serviceWorker" in navigator) {
