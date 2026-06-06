@@ -18,6 +18,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   min-height: 100svh;
   margin: 0;
@@ -398,7 +402,8 @@ svg {
 .templates-panel,
 .workout-list,
 .progress-panel,
-.history-panel {
+.history-panel,
+.danger-panel {
   border: 1px solid var(--line);
   background: rgba(27, 31, 35, 0.92);
 }
@@ -423,7 +428,8 @@ svg {
 .templates-panel,
 .workout-list,
 .progress-panel,
-.history-panel {
+.history-panel,
+.danger-panel {
   padding: 14px;
   border-radius: var(--radius);
 }
@@ -646,7 +652,12 @@ svg {
 .template-editor button,
 .template-create-actions button,
 .template-actions button,
-.panel-actions button {
+.panel-actions button,
+.template-workout-actions button,
+.history-template-row button,
+.danger-panel button,
+.inline-exercise-controls button,
+.inline-rest button {
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -657,15 +668,15 @@ svg {
 
 .template-create-actions {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
   gap: 8px;
 }
 
 .template-actions {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-  padding-top: 10px;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 12px;
   border-top: 1px solid var(--line);
 }
 
@@ -675,6 +686,23 @@ svg {
 
 .template-actions button:last-child {
   color: var(--warn);
+}
+
+.template-actions .danger-action {
+  color: var(--warn);
+}
+
+.template-workout-actions {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.template-workout-actions button {
+  min-height: 44px;
 }
 
 .panel-actions {
@@ -788,7 +816,7 @@ ul {
 }
 
 .history-card {
-  padding: 10px;
+  padding: 12px;
 }
 
 .history-card h3 {
@@ -944,6 +972,35 @@ ul {
   text-align: center;
 }
 
+.history-template-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.history-template-row button {
+  min-width: 82px;
+  padding: 0 14px;
+  color: var(--accent);
+}
+
+.danger-panel {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.danger-panel p {
+  margin-top: 5px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.danger-panel button {
+  color: var(--warn);
+}
+
 .empty-state svg {
   color: var(--accent);
 }
@@ -965,6 +1022,58 @@ ul {
   border-radius: var(--radius);
   background: var(--panel);
   padding: 7px 9px;
+}
+
+.set-list li.editable-set {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) minmax(0, 1fr) 34px;
+  align-items: end;
+}
+
+.editable-set label {
+  display: grid;
+  gap: 4px;
+}
+
+.editable-set small {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.editable-set input {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #111519;
+  color: var(--text);
+  padding: 0 8px;
+}
+
+.small-delete {
+  width: 34px;
+  height: 38px;
+}
+
+.inline-exercise-controls {
+  display: grid;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.inline-rest {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.inline-rest button.active {
+  border-color: var(--accent);
+  background: rgba(96, 211, 148, 0.16);
+  color: var(--accent);
 }
 
 .set-list span {

@@ -139,6 +139,10 @@
             <p>Inserisci il primo esercizio per iniziare la sessione.</p>
           </div>
           <ul id="exerciseList"></ul>
+          <div class="template-workout-actions" id="templateWorkoutActions" hidden>
+            <button id="toggleTemplateEdit" type="button">Edita</button>
+            <button id="toggleTemplateAdd" type="button">Aggiungi</button>
+          </div>
         </section>
       </section>
 
@@ -225,6 +229,13 @@
           </label>
           <button class="primary-action" type="submit">Salva dati</button>
         </form>
+        <section class="danger-panel">
+          <div>
+            <h2>Riparti da zero</h2>
+            <p>Elimina profilo, storico, template e sessione attiva.</p>
+          </div>
+          <button id="resetDatabase" type="button">Elimina tutto</button>
+        </section>
       </section>
 
       <section class="choice-sheet" id="startSheet" hidden>

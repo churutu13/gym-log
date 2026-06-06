@@ -5,6 +5,7 @@ const state = {
   profile: load("gym-log-profile", null),
   editingTemplate: load("gym-log-editing-template", null),
   sessionStartedAt: load("gym-log-started-at", null),
+  activeTemplateWorkout: load("gym-log-active-template-workout", false),
 };
 
 const views = {
@@ -32,6 +33,8 @@ const setRows = document.querySelector("#setRows");
 let selectedRest = 90;
 let currentView = "";
 let welcomePlayed = sessionStorage.getItem("gym-log-welcome-played") === "true";
+let templateAddMode = false;
+let templateExerciseEditMode = false;
 
 if (state.exercises.length && !state.sessionStartedAt) {
   state.sessionStartedAt = new Date().toISOString();
@@ -65,6 +68,15 @@ document.querySelector("#startBlankWorkout").addEventListener("click", startBlan
 document.querySelector("#closeStartSheet").addEventListener("click", closeStartPanel);
 document.querySelector("#finishOnboarding").addEventListener("click", finishOnboarding);
 document.querySelector("#activeWorkoutPill").addEventListener("click", () => showView("workout"));
+document.querySelector("#toggleTemplateEdit").addEventListener("click", () => {
+  templateExerciseEditMode = !templateExerciseEditMode;
+  render();
+});
+document.querySelector("#toggleTemplateAdd").addEventListener("click", () => {
+  templateAddMode = !templateAddMode;
+  render();
+});
+document.querySelector("#resetDatabase").addEventListener("click", resetDatabase);
 
 document.querySelectorAll("[data-view-target]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -184,6 +196,7 @@ form.addEventListener("submit", (event) => {
   resetSetRows();
   syncRestButtons();
   hideExerciseSuggestions();
+  templateAddMode = false;
   document.activeElement?.blur();
   render();
 });
@@ -196,6 +209,9 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
 
   if (!state.exercises.length) {
     state.sessionStartedAt = null;
+    state.activeTemplateWorkout = false;
+    templateAddMode = false;
+    templateExerciseEditMode = false;
     saveCurrent();
     showView("home");
     return;
@@ -209,20 +225,77 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
   });
   state.exercises = [];
   state.sessionStartedAt = null;
+  state.activeTemplateWorkout = false;
+  templateAddMode = false;
+  templateExerciseEditMode = false;
   persist();
   showView("home");
 });
 
 list.addEventListener("click", (event) => {
   const button = event.target.closest("[data-delete]");
-  if (!button) return;
+  const addSetButton = event.target.closest("[data-add-set-to-exercise]");
+  const removeSetButton = event.target.closest("[data-remove-inline-set]");
+  const restButton = event.target.closest("[data-rest-update]");
 
-  state.exercises = state.exercises.filter((exercise) => exercise.id !== button.dataset.delete);
-  if (!state.exercises.length) {
-    state.sessionStartedAt = null;
+  if (button) {
+    if (state.activeTemplateWorkout && !templateExerciseEditMode) return;
+    state.exercises = state.exercises.filter((exercise) => exercise.id !== button.dataset.delete);
+    if (!state.exercises.length) {
+      state.sessionStartedAt = null;
+      state.activeTemplateWorkout = false;
+    }
+    saveCurrent();
+    render();
+    return;
   }
-  saveCurrent();
-  render();
+
+  if (addSetButton) {
+    updateExercise(addSetButton.dataset.addSetToExercise, (exercise) => ({
+      ...exercise,
+      sets: [...normalizeSets(exercise), { weight: 0, reps: 1 }],
+    }));
+    return;
+  }
+
+  if (removeSetButton) {
+    const setIndex = Number(removeSetButton.dataset.setIndex);
+    updateExercise(removeSetButton.dataset.removeInlineSet, (exercise) => {
+      const sets = normalizeSets(exercise).filter((_, index) => index !== setIndex);
+      return { ...exercise, sets: sets.length ? sets : [{ weight: 0, reps: 1 }] };
+    });
+    return;
+  }
+
+  if (restButton) {
+    updateExercise(restButton.dataset.restUpdate, (exercise) => ({
+      ...exercise,
+      rest: Number(restButton.dataset.restValue),
+    }));
+  }
+});
+
+list.addEventListener("input", (event) => {
+  const input = event.target.closest("[data-set-field]");
+  if (!input) return;
+
+  const setIndex = Number(input.dataset.setIndex);
+  updateExercise(input.dataset.exerciseId, (exercise) => {
+    const sets = normalizeSets(exercise).map((set, index) => {
+      if (index !== setIndex) return set;
+      return {
+        ...set,
+        [input.dataset.setField]: Number(input.value) || 0,
+      };
+    });
+    return { ...exercise, sets };
+  }, false);
+});
+
+historyPageList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-history-delete]");
+  if (!button) return;
+  deleteHistoryWorkout(button.dataset.historyDelete);
 });
 
 function showView(viewName) {
@@ -277,6 +350,9 @@ function startBlankWorkout() {
   const isReplacing = state.exercises.length > 0;
   if (isReplacing && !confirm("Sostituire la sessione corrente?")) return;
   state.editingTemplate = null;
+  state.activeTemplateWorkout = false;
+  templateAddMode = false;
+  templateExerciseEditMode = false;
   state.exercises = [];
   state.sessionStartedAt = isReplacing ? new Date().toISOString() : state.sessionStartedAt ?? new Date().toISOString();
   saveCurrent();
@@ -290,6 +366,9 @@ function startTemplateWorkout(templateId) {
   const isReplacing = state.exercises.length > 0;
   if (isReplacing && !confirm("Sostituire la sessione corrente?")) return;
   state.editingTemplate = null;
+  state.activeTemplateWorkout = true;
+  templateAddMode = false;
+  templateExerciseEditMode = false;
   state.exercises = cloneSessionExercises(template.exercises);
   state.sessionStartedAt = isReplacing ? new Date().toISOString() : state.sessionStartedAt ?? new Date().toISOString();
   saveCurrent();
@@ -318,7 +397,7 @@ function render() {
   document.querySelector("#summarySets").textContent = totalSets;
   renderDuration();
 
-  emptyState.hidden = state.exercises.length > 0;
+  emptyState.hidden = state.exercises.length > 0 || state.activeTemplateWorkout;
   list.innerHTML = state.exercises.map(renderExercise).join("");
   renderExerciseSuggestions();
   renderTemplates();
@@ -330,7 +409,10 @@ function render() {
 
 function renderWorkoutMode() {
   const isTemplate = Boolean(state.editingTemplate);
+  const isTemplateWorkout = Boolean(state.activeTemplateWorkout && !isTemplate);
   document.body.classList.toggle("template-mode", isTemplate);
+  document.body.classList.toggle("template-workout-mode", isTemplateWorkout);
+  document.body.classList.toggle("template-edit-open", templateExerciseEditMode);
   document.querySelector("#workoutEyebrow").textContent = isTemplate
     ? "Template"
     : "Allenamento";
@@ -343,6 +425,10 @@ function renderWorkoutMode() {
   document.querySelector("#finishWorkout").textContent = isTemplate
     ? "Salva template"
     : "Fine allenamento";
+  form.hidden = isTemplateWorkout && !templateAddMode;
+  document.querySelector("#templateWorkoutActions").hidden = !isTemplateWorkout;
+  document.querySelector("#toggleTemplateEdit").textContent = templateExerciseEditMode ? "Fine modifica" : "Edita";
+  document.querySelector("#toggleTemplateAdd").textContent = templateAddMode ? "Chiudi aggiunta" : "Aggiungi";
 }
 
 function renderActiveWorkoutPill() {
@@ -366,28 +452,70 @@ function renderDuration() {
 
 function renderExercise(exercise) {
   const sets = normalizeSets(exercise);
+  const canEditInline = Boolean(state.activeTemplateWorkout && !state.editingTemplate);
+  const canDelete = !state.activeTemplateWorkout || state.editingTemplate || templateExerciseEditMode;
 
   return `
     <li class="exercise-card">
       <header>
         <h3>${escapeHtml(exercise.name)}</h3>
-        <button class="delete-row" type="button" data-delete="${exercise.id}" aria-label="Elimina esercizio">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
-        </button>
+        ${canDelete ? `
+          <button class="delete-row" type="button" data-delete="${exercise.id}" aria-label="Elimina esercizio">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        ` : ""}
       </header>
       <div class="stats">
         <span>${sets.length} serie</span>
         <span>${exercise.rest ?? 90}s pausa</span>
       </div>
       <ol class="set-list">
-        ${sets.map((set, index) => `
-          <li>
-            <span>Serie ${index + 1}</span>
-            <strong>${formatNumber(set.weight)} kg x ${set.reps}</strong>
-          </li>
-        `).join("")}
+        ${sets.map((set, index) => renderExerciseSet(exercise, set, index, canEditInline)).join("")}
       </ol>
+      ${canEditInline ? renderInlineExerciseControls(exercise) : ""}
     </li>
+  `;
+}
+
+function renderExerciseSet(exercise, set, index, canEditInline) {
+  if (!canEditInline) {
+    return `
+      <li>
+        <span>Serie ${index + 1}</span>
+        <strong>${formatNumber(set.weight)} kg x ${set.reps}</strong>
+      </li>
+    `;
+  }
+
+  return `
+    <li class="editable-set">
+      <span>Serie ${index + 1}</span>
+      <label>
+        <small>Kg</small>
+        <input type="number" min="0" step="0.5" inputmode="decimal" value="${set.weight}" data-set-field="weight" data-exercise-id="${exercise.id}" data-set-index="${index}" />
+      </label>
+      <label>
+        <small>Rip.</small>
+        <input type="number" min="1" max="100" inputmode="numeric" value="${set.reps}" data-set-field="reps" data-exercise-id="${exercise.id}" data-set-index="${index}" />
+      </label>
+      <button class="delete-row small-delete" type="button" data-remove-inline-set="${exercise.id}" data-set-index="${index}" aria-label="Elimina serie">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+      </button>
+    </li>
+  `;
+}
+
+function renderInlineExerciseControls(exercise) {
+  const rest = exercise.rest ?? 90;
+  return `
+    <div class="inline-exercise-controls">
+      <button type="button" data-add-set-to-exercise="${exercise.id}">Aggiungi serie</button>
+      <div class="inline-rest">
+        ${[60, 90, 120, 180].map((seconds) => `
+          <button type="button" class="${rest === seconds ? "active" : ""}" data-rest-update="${exercise.id}" data-rest-value="${seconds}">${seconds}s</button>
+        `).join("")}
+      </div>
+    </div>
   `;
 }
 
@@ -396,6 +524,7 @@ function renderHistory(workout, options = {}) {
   const sets = workout.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
   const date = formatHistoryDate(workout.date);
   const templateAction = options.templateAction ?? true;
+  const deleteAction = options.deleteAction ?? false;
 
   return `
     <li class="history-card">
@@ -417,6 +546,11 @@ function renderHistory(workout, options = {}) {
         ${templateAction ? `
           <div class="template-actions single-action">
             <button type="button" data-history-template="${workout.id}">Salva come template</button>
+          </div>
+        ` : ""}
+        ${deleteAction ? `
+          <div class="template-actions single-action">
+            <button class="danger-action" type="button" data-history-delete="${workout.id}">Elimina dallo storico</button>
           </div>
         ` : ""}
       </details>
@@ -521,7 +655,7 @@ function renderTemplate(template) {
 
 function renderHistoryPage() {
   historyPageEmpty.hidden = state.history.length > 0;
-  historyPageList.innerHTML = state.history.map((workout) => renderHistory(workout, { templateAction: false })).join("");
+  historyPageList.innerHTML = state.history.map((workout) => renderHistory(workout, { templateAction: false, deleteAction: true })).join("");
 }
 
 function renderExerciseSuggestions() {
@@ -596,6 +730,7 @@ function createBlankTemplate() {
 
   if (state.exercises.length && !confirm("Sostituire la sessione corrente?")) return;
   state.editingTemplate = { id: crypto.randomUUID(), name };
+  state.activeTemplateWorkout = false;
   state.exercises = [];
   state.sessionStartedAt = null;
   document.querySelector("#templateNamePage").value = "";
@@ -643,6 +778,7 @@ function editTemplate(templateId) {
     id: template.id,
     name: template.name,
   };
+  state.activeTemplateWorkout = false;
   state.exercises = cloneSessionExercises(template.exercises);
   state.sessionStartedAt = null;
   saveCurrent();
@@ -659,6 +795,7 @@ function saveEditingTemplate() {
 
   saveTemplateFromExercises(state.editingTemplate.name, state.exercises);
   state.editingTemplate = null;
+  state.activeTemplateWorkout = false;
   state.exercises = [];
   state.sessionStartedAt = null;
   saveCurrent();
@@ -674,6 +811,9 @@ function loadTemplate(templateId) {
   if (state.exercises.length && !confirm("Sostituire la sessione corrente con questo template?")) return;
 
   state.editingTemplate = null;
+  state.activeTemplateWorkout = true;
+  templateAddMode = false;
+  templateExerciseEditMode = false;
   state.exercises = cloneSessionExercises(template.exercises);
   state.sessionStartedAt = new Date().toISOString();
   saveCurrent();
@@ -687,6 +827,53 @@ function deleteTemplate(templateId) {
   state.templates = state.templates.filter((template) => template.id !== templateId);
   saveTemplates();
   render();
+}
+
+function deleteHistoryWorkout(workoutId) {
+  if (!confirm("Eliminare questo allenamento dallo storico?")) return;
+  state.history = state.history.filter((workout) => workout.id !== workoutId);
+  persist();
+  render();
+}
+
+function updateExercise(exerciseId, updater, rerender = true) {
+  state.exercises = state.exercises.map((exercise) => {
+    if (exercise.id !== exerciseId) return exercise;
+    return updater(exercise);
+  });
+  saveCurrent();
+  if (rerender) render();
+}
+
+function resetDatabase() {
+  if (!confirm("Eliminare profilo, storico, template e sessione attiva?")) return;
+
+  state.exercises = [];
+  state.history = [];
+  state.templates = [];
+  state.profile = null;
+  state.editingTemplate = null;
+  state.sessionStartedAt = null;
+  state.activeTemplateWorkout = false;
+  templateAddMode = false;
+  templateExerciseEditMode = false;
+  welcomePlayed = false;
+
+  [
+    "gym-log-current",
+    "gym-log-history",
+    "gym-log-templates",
+    "gym-log-profile",
+    "gym-log-editing-template",
+    "gym-log-started-at",
+    "gym-log-active-template-workout",
+  ].forEach((key) => localStorage.removeItem(key));
+  sessionStorage.removeItem("gym-log-welcome-played");
+
+  document.querySelector("#profileNameSetup").value = "";
+  document.querySelector("#profileWeightSetup").value = "";
+  document.querySelector("#profileAgeSetup").value = "";
+  showView("onboarding");
 }
 
 function value(selector) {
@@ -993,6 +1180,11 @@ function saveCurrent() {
     localStorage.setItem("gym-log-started-at", JSON.stringify(state.sessionStartedAt));
   } else {
     localStorage.removeItem("gym-log-started-at");
+  }
+  if (state.activeTemplateWorkout && state.exercises.length) {
+    localStorage.setItem("gym-log-active-template-workout", JSON.stringify(true));
+  } else {
+    localStorage.removeItem("gym-log-active-template-workout");
   }
 }
 
