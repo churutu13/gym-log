@@ -2,6 +2,8 @@ const state = {
   exercises: load("gym-log-current", []),
   history: load("gym-log-history", []),
   templates: load("gym-log-templates", []),
+  myExercises: load("gym-log-my-exercises", []),
+  weightEntries: load("gym-log-weight-entries", []),
   profile: load("gym-log-profile", null),
   editingTemplate: load("gym-log-editing-template", null),
   sessionStartedAt: load("gym-log-started-at", null),
@@ -9,6 +11,7 @@ const state = {
 };
 
 const views = {
+  intro: document.querySelector("#introView"),
   onboarding: document.querySelector("#onboardingView"),
   home: document.querySelector("#homeView"),
   workout: document.querySelector("#workoutView"),
@@ -25,13 +28,21 @@ const templatePageEmpty = document.querySelector("#templatePageEmpty");
 const templateHistorySummary = document.querySelector("#templateHistorySummary");
 const progressPageList = document.querySelector("#progressPageList");
 const progressPageEmpty = document.querySelector("#progressPageEmpty");
+const weightProgressPanel = document.querySelector("#weightProgressPanel");
 const historyPageList = document.querySelector("#historyPageList");
 const historyPageEmpty = document.querySelector("#historyPageEmpty");
 const exerciseSuggestions = document.querySelector("#exerciseSuggestions");
 const emptyState = document.querySelector("#emptyState");
 const setRows = document.querySelector("#setRows");
+const durationField = document.querySelector("#durationField");
+const stretchingSetsField = document.querySelector("#stretchingSetsField");
+const myExercisesList = document.querySelector("#myExercisesList");
+const myExercisesEmpty = document.querySelector("#myExercisesEmpty");
+const myExercisesSummary = document.querySelector("#myExercisesSummary");
 let selectedRest = 90;
 let currentView = "";
+let currentExerciseType = "strength";
+let introPlayed = sessionStorage.getItem("gym-log-intro-played") === "true";
 let welcomePlayed = sessionStorage.getItem("gym-log-welcome-played") === "true";
 let templateAddMode = false;
 let templateExerciseEditMode = false;
@@ -80,6 +91,13 @@ document.querySelector("#toggleTemplateAdd").addEventListener("click", () => {
 });
 document.querySelector("#resetDatabase").addEventListener("click", resetDatabase);
 
+document.querySelectorAll("[name='exerciseType']").forEach((input) => {
+  input.addEventListener("change", () => {
+    currentExerciseType = input.value;
+    renderExerciseTypeFields();
+  });
+});
+
 document.querySelectorAll("[data-view-target]").forEach((button) => {
   button.addEventListener("click", () => {
     showView(button.dataset.viewTarget);
@@ -108,7 +126,11 @@ exerciseSuggestions.addEventListener("click", (event) => {
 
   document.querySelector("#exerciseName").value = button.dataset.suggestion;
   hideExerciseSuggestions();
-  setRows.querySelector("[name='weight']").focus();
+  if (currentExerciseType === "strength") {
+    setRows.querySelector("[name='weight']").focus();
+  } else {
+    document.querySelector("#exerciseDuration").focus();
+  }
 });
 
 setRows.addEventListener("click", (event) => {
@@ -136,14 +158,45 @@ document.querySelector("#startTemplateList").addEventListener("click", (event) =
 
 document.querySelector("#profileForm").addEventListener("submit", (event) => {
   event.preventDefault();
+  const weight = value("#profileWeight");
+  const newGoal = checkedValue("profileGoal") || "massa";
+  const previousGoal = state.profile?.goal ?? "massa";
+  if (state.profile && previousGoal !== newGoal) {
+    const confirmed = confirm("Vuoi cambiare obiettivo? I progressi peso useranno la nuova direzione.");
+    if (!confirmed) {
+      renderProfile();
+      return;
+    }
+  }
   state.profile = {
     name: value("#profileName") || "Roberto",
-    weight: value("#profileWeight"),
+    weight,
     age: value("#profileAge"),
+    goal: newGoal,
+    gender: checkedValue("profileGender") || "neutral",
   };
+  addWeightEntry(weight);
   saveProfile();
   render();
   showView("home");
+});
+
+document.querySelector("#myExerciseForm").addEventListener("submit", (event) => {
+  event.preventDefault();
+  addMyExercise(value("#myExerciseName"), checkedValue("myExerciseType") || "strength");
+});
+
+myExercisesList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-my-exercise-delete]");
+  if (!button) return;
+  deleteMyExercise(button.dataset.myExerciseDelete);
+});
+
+weightProgressPanel.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const input = event.target.querySelector("[name='weeklyWeight']");
+  addWeightEntry(input.value.trim(), true);
+  renderProgressPage();
 });
 
 function handleTemplateListClick(event) {
@@ -176,26 +229,47 @@ form.addEventListener("submit", (event) => {
     state.sessionStartedAt = new Date().toISOString();
   }
 
-  const sets = getSetValues();
-  if (!sets) return;
-  if (!sets.length) {
+  const exerciseType = currentExerciseType;
+  const durationValue = Number(value("#exerciseDuration"));
+  const stretchingSets = Number(value("#stretchingSets"));
+  const sets = exerciseType === "strength" ? getSetValues() : [];
+  if (sets === null) return;
+
+  if (exerciseType === "strength" && !sets.length) {
     alert("Compila almeno una serie.");
+    return;
+  }
+
+  if (exerciseType !== "strength" && (!durationValue || durationValue < 1)) {
+    alert("Inserisci la durata dell'esercizio.");
+    return;
+  }
+
+  if (exerciseType === "stretching" && (!stretchingSets || stretchingSets < 1)) {
+    alert("Inserisci le serie dello stretching.");
     return;
   }
 
   const exercise = {
     id: crypto.randomUUID(),
     name: value("#exerciseName"),
+    type: exerciseType,
     sets,
+    durationMinutes: exerciseType === "cardio" ? durationValue : null,
+    durationSeconds: exerciseType === "stretching" ? durationValue : null,
+    stretchSets: exerciseType === "stretching" ? stretchingSets : null,
     rest: selectedRest,
     createdAt: new Date().toISOString(),
   };
 
   state.exercises.unshift(exercise);
+  rememberExerciseName(exercise.name, exercise.type);
   saveCurrent();
   form.reset();
+  currentExerciseType = exerciseType;
   selectedRest = exercise.rest;
   resetSetRows();
+  renderExerciseTypeFields();
   syncRestButtons();
   hideExerciseSuggestions();
   templateAddMode = false;
@@ -317,6 +391,8 @@ function showView(viewName) {
   closeStartPanel();
   if (viewName === "home") {
     playHomeWelcome();
+  } else if (viewName === "intro") {
+    playIntro();
   } else {
     document.body.classList.remove("splash-active");
   }
@@ -324,6 +400,15 @@ function showView(viewName) {
   if (previousView && previousView !== viewName) {
     closeCollapsibleMenus();
   }
+}
+
+function playIntro() {
+  document.body.classList.add("splash-active");
+  window.setTimeout(() => {
+    introPlayed = true;
+    sessionStorage.setItem("gym-log-intro-played", "true");
+    showView(state.profile ? "home" : "onboarding");
+  }, 8000);
 }
 
 function closeCollapsibleMenus() {
@@ -403,22 +488,28 @@ function startTemplateWorkout(templateId) {
 }
 
 function finishOnboarding() {
+  const weight = value("#profileWeightSetup");
   state.profile = {
     name: value("#profileNameSetup") || "Roberto",
-    weight: value("#profileWeightSetup"),
+    weight,
     age: value("#profileAgeSetup"),
+    goal: checkedValue("goalSetup") || "massa",
+    gender: checkedValue("genderSetup") || "neutral",
   };
+  addWeightEntry(weight);
   saveProfile();
   render();
   showView("home");
 }
 
 function render() {
-  const totalSets = state.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
+  const totalSets = countSessionSets(state.exercises);
   const shouldRenderAll = !currentView;
 
   renderProfile();
   renderWorkoutMode();
+  renderExerciseTypeFields();
+  renderMyExercises();
   renderActiveWorkoutPill();
   document.querySelector("#summaryExercises").textContent = state.exercises.length;
   document.querySelector("#summarySets").textContent = totalSets;
@@ -478,11 +569,59 @@ function renderActiveWorkoutPill() {
 }
 
 function renderProfile() {
-  const profile = state.profile ?? { name: "Roberto", weight: "", age: "" };
-  document.querySelector("#welcomeTitle").textContent = `Benvenuto, ${profile.name || "Roberto"}`;
+  const profile = state.profile ?? { name: "Roberto", weight: "", age: "", goal: "massa", gender: "neutral" };
+  const gender = profile.gender ?? inferGender(profile.name);
+  document.querySelector("#welcomeTitle").textContent = `${welcomeWord(gender)}, ${profile.name || "Roberto"}`;
   document.querySelector("#profileName").value = profile.name ?? "";
   document.querySelector("#profileWeight").value = profile.weight ?? "";
   document.querySelector("#profileAge").value = profile.age ?? "";
+  document.querySelectorAll("[name='profileGender']").forEach((input) => {
+    input.checked = input.value === gender;
+  });
+  document.querySelectorAll("[name='profileGoal']").forEach((input) => {
+    input.checked = input.value === (profile.goal ?? "massa");
+  });
+}
+
+function renderExerciseTypeFields() {
+  document.querySelectorAll("[name='exerciseType']").forEach((input) => {
+    input.checked = input.value === currentExerciseType;
+  });
+  const isStrength = currentExerciseType === "strength";
+  const isStretching = currentExerciseType === "stretching";
+  document.querySelector(".set-builder").hidden = !isStrength;
+  document.querySelector(".rest-panel").hidden = !isStrength;
+  durationField.hidden = isStrength;
+  stretchingSetsField.hidden = !isStretching;
+  document.querySelector("#exerciseDuration").required = !isStrength;
+  document.querySelector("#stretchingSets").required = isStretching;
+  document.querySelector("#durationLabel").textContent = isStretching ? "Durata in secondi" : "Durata in minuti";
+  document.querySelector("#exerciseDuration").max = isStretching ? "3600" : "600";
+}
+
+function renderMyExercises() {
+  myExercisesSummary.textContent = `${state.myExercises.length} salvati`;
+  myExercisesEmpty.hidden = state.myExercises.length > 0;
+  myExercisesList.innerHTML = ["strength", "cardio", "stretching"].map((type) => {
+    const exercises = state.myExercises.filter((exercise) => (exercise.type ?? "strength") === type);
+    if (!exercises.length) return "";
+
+    return `
+      <li class="library-group">
+        <h3>${exerciseTypeLabel(type)}</h3>
+        <ul>
+          ${exercises.map((exercise) => `
+            <li class="library-row">
+              <span>${escapeHtml(exercise.name)}</span>
+              <button class="delete-row" type="button" data-my-exercise-delete="${exercise.id}" aria-label="Elimina esercizio">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+              </button>
+            </li>
+          `).join("")}
+        </ul>
+      </li>
+    `;
+  }).join("");
 }
 
 function renderDuration() {
@@ -491,13 +630,17 @@ function renderDuration() {
 
 function renderExercise(exercise) {
   const sets = normalizeSets(exercise);
+  const type = exercise.type ?? "strength";
   const canEditInline = Boolean(state.activeTemplateWorkout && !state.editingTemplate);
   const canDelete = !state.activeTemplateWorkout || state.editingTemplate || templateExerciseEditMode;
 
   return `
     <li class="exercise-card">
       <header>
-        <h3>${escapeHtml(exercise.name)}</h3>
+        <div>
+          <h3>${escapeHtml(exercise.name)}</h3>
+          ${type !== "strength" ? `<span class="type-label">${exerciseTypeLabel(type)}</span>` : ""}
+        </div>
         ${canDelete ? `
           <button class="delete-row" type="button" data-delete="${exercise.id}" aria-label="Elimina esercizio">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -505,13 +648,20 @@ function renderExercise(exercise) {
         ` : ""}
       </header>
       <div class="stats">
-        <span>${sets.length} serie</span>
-        <span>${exercise.rest ?? 90}s pausa</span>
+        ${type === "strength" ? `
+          <span>${sets.length} serie</span>
+          <span>${exercise.rest ?? 90}s pausa</span>
+        ` : `
+          <span>${formatExerciseDuration(exercise)} durata</span>
+          ${type === "stretching" ? `<span>${getStretchSets(exercise)} serie</span>` : ""}
+        `}
       </div>
-      <ol class="set-list">
-        ${sets.map((set, index) => renderExerciseSet(exercise, set, index, canEditInline)).join("")}
-      </ol>
-      ${canEditInline ? renderInlineExerciseControls(exercise) : ""}
+      ${type === "strength" ? `
+        <ol class="set-list">
+          ${sets.map((set, index) => renderExerciseSet(exercise, set, index, canEditInline)).join("")}
+        </ol>
+        ${canEditInline ? renderInlineExerciseControls(exercise) : ""}
+      ` : ""}
     </li>
   `;
 }
@@ -560,7 +710,7 @@ function renderInlineExerciseControls(exercise) {
 
 function renderHistory(workout, options = {}) {
   const exerciseCount = workout.exercises.length;
-  const sets = workout.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
+  const sets = countSessionSets(workout.exercises);
   const date = formatHistoryDate(workout.date);
   const title = workout.title?.trim();
   const templateAction = options.templateAction ?? true;
@@ -608,21 +758,35 @@ function renderHistory(workout, options = {}) {
 
 function renderSavedExercise(exercise) {
   const sets = normalizeSets(exercise);
+  const type = exercise.type ?? "strength";
 
   return `
     <li>
       <header>
-        <h4>${escapeHtml(exercise.name)}</h4>
-        <span>${exercise.rest ?? 90}s pausa</span>
+        <div>
+          <h4>${escapeHtml(exercise.name)}</h4>
+          ${type !== "strength" ? `<span class="type-label">${exerciseTypeLabel(type)}</span>` : ""}
+        </div>
+        <span>${type === "strength" ? `${exercise.rest ?? 90}s pausa` : formatExerciseDuration(exercise)}</span>
       </header>
-      <ol class="set-list">
-        ${sets.map((set, index) => `
+      ${type === "stretching" ? `
+        <ol class="set-list">
           <li>
-            <span>Serie ${index + 1}</span>
-            <strong>${formatNumber(set.weight)} kg x ${set.reps}</strong>
+            <span>Serie</span>
+            <strong>${getStretchSets(exercise)}</strong>
           </li>
-        `).join("")}
-      </ol>
+        </ol>
+      ` : ""}
+      ${type === "strength" ? `
+        <ol class="set-list">
+          ${sets.map((set, index) => `
+            <li>
+              <span>Serie ${index + 1}</span>
+              <strong>${formatNumber(set.weight)} kg x ${set.reps}</strong>
+            </li>
+          `).join("")}
+        </ol>
+      ` : ""}
     </li>
   `;
 }
@@ -655,7 +819,7 @@ function renderTemplateHistory() {
 
 function renderTemplate(template) {
   const exerciseCount = template.exercises.length;
-  const sets = template.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
+  const sets = countSessionSets(template.exercises);
 
   return `
     <li class="template-card">
@@ -696,7 +860,7 @@ function renderExerciseSuggestions() {
   }
 
   const query = value("#exerciseName");
-  const matches = getExerciseSuggestions(query).slice(0, 6);
+  const matches = getExerciseSuggestions(query, currentExerciseType).slice(0, 6);
 
   exerciseSuggestions.hidden = matches.length === 0;
   exerciseSuggestions.innerHTML = matches
@@ -710,8 +874,60 @@ function hideExerciseSuggestions() {
 
 function renderProgressPage() {
   const progressItems = getProgressItems();
+  renderWeightProgress();
   progressPageEmpty.hidden = progressItems.length > 0;
   progressPageList.innerHTML = progressItems.map(renderProgressItem).join("");
+}
+
+function renderWeightProgress() {
+  const entries = [...state.weightEntries].sort((a, b) => new Date(a.date) - new Date(b.date));
+  const latest = entries.at(-1);
+  const previous = entries.at(-2);
+  const profile = state.profile ?? {};
+  const goal = profile.goal ?? "massa";
+  const due = isWeightUpdateDue(latest?.date);
+  const delta = latest && previous ? latest.weight - previous.weight : 0;
+  const goalCopy = goal === "perdere-peso"
+    ? "Obiettivo: perdere peso"
+    : "Obiettivo: massa";
+
+  weightProgressPanel.innerHTML = `
+    <article class="progress-card weight-card">
+      <header>
+        <div>
+          <h3>Peso corporeo</h3>
+          <span>${goalCopy}</span>
+        </div>
+        ${latest ? `<strong class="${deltaClass(delta)}">${formatNumber(latest.weight)} kg</strong>` : ""}
+      </header>
+      <div class="progress-grid">
+        <div>
+          <span>Ultimo dato</span>
+          <strong>${latest ? `${formatNumber(latest.weight)} kg` : "-"}</strong>
+          <small>${latest ? formatDate(latest.date) : "Da aggiornare"}</small>
+        </div>
+        <div>
+          <span>Variazione</span>
+          <strong>${latest && previous ? `${formatSigned(delta)} kg` : "0"}</strong>
+          <small>${previous ? `da ${formatDate(previous.date)}` : "primo dato"}</small>
+        </div>
+        <div>
+          <span>Direzione</span>
+          <strong>${goal === "perdere-peso" ? "Peso giu" : "Massa su"}</strong>
+          <small>${weightTrendCopy(goal, delta, entries.length)}</small>
+        </div>
+      </div>
+      ${due ? `
+        <form class="weekly-weight-form">
+          <label class="field">
+            <span>Promemoria settimanale</span>
+            <input name="weeklyWeight" type="number" min="0" step="0.1" inputmode="decimal" placeholder="Aggiorna peso" required />
+          </label>
+          <button class="primary-action" type="submit">Aggiorna peso</button>
+        </form>
+      ` : ""}
+    </article>
+  `;
 }
 
 function renderProgressItem(item) {
@@ -883,6 +1099,77 @@ function renameHistoryWorkout(workoutId) {
   render();
 }
 
+function addMyExercise(name, type = "strength") {
+  const cleanName = name.trim();
+  if (!cleanName) {
+    alert("Inserisci il nome dell'esercizio.");
+    return;
+  }
+
+  const key = exerciseKey(cleanName);
+  if (state.myExercises.some((exercise) => exerciseKey(exercise.name) === key && (exercise.type ?? "strength") === type)) {
+    alert("Questo esercizio e' gia salvato.");
+    return;
+  }
+
+  state.myExercises.unshift({
+    id: crypto.randomUUID(),
+    name: cleanName,
+    type,
+    createdAt: new Date().toISOString(),
+  });
+  document.querySelector("#myExerciseName").value = "";
+  document.querySelector("[name='myExerciseType'][value='strength']").checked = true;
+  saveMyExercises();
+  render();
+}
+
+function rememberExerciseName(name, type = "strength") {
+  const cleanName = name.trim();
+  const key = exerciseKey(cleanName);
+  if (!key || state.myExercises.some((exercise) => exerciseKey(exercise.name) === key && (exercise.type ?? "strength") === type)) return;
+
+  state.myExercises.unshift({
+    id: crypto.randomUUID(),
+    name: cleanName,
+    type,
+    createdAt: new Date().toISOString(),
+  });
+  saveMyExercises();
+}
+
+function deleteMyExercise(exerciseId) {
+  state.myExercises = state.myExercises.filter((exercise) => exercise.id !== exerciseId);
+  saveMyExercises();
+  render();
+}
+
+function addWeightEntry(weightValue, shouldSyncProfile = false) {
+  const weight = Number(weightValue);
+  if (!weight || weight <= 0) return;
+
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const existingIndex = state.weightEntries.findIndex((entry) => entry.date.slice(0, 10) === todayKey);
+  const entry = {
+    id: existingIndex >= 0 ? state.weightEntries[existingIndex].id : crypto.randomUUID(),
+    weight,
+    date: new Date().toISOString(),
+  };
+
+  if (existingIndex >= 0) {
+    state.weightEntries[existingIndex] = entry;
+  } else {
+    state.weightEntries.push(entry);
+  }
+
+  if (shouldSyncProfile && state.profile) {
+    state.profile = { ...state.profile, weight: String(weight) };
+    saveProfile();
+  }
+
+  saveWeightEntries();
+}
+
 function updateExercise(exerciseId, updater, rerender = true) {
   state.exercises = state.exercises.map((exercise) => {
     if (exercise.id !== exerciseId) return exercise;
@@ -902,33 +1189,45 @@ function resetDatabase() {
   state.exercises = [];
   state.history = [];
   state.templates = [];
+  state.myExercises = [];
+  state.weightEntries = [];
   state.profile = null;
   state.editingTemplate = null;
   state.sessionStartedAt = null;
   state.activeTemplateWorkout = false;
   templateAddMode = false;
   templateExerciseEditMode = false;
+  introPlayed = false;
   welcomePlayed = false;
 
   [
     "gym-log-current",
     "gym-log-history",
     "gym-log-templates",
+    "gym-log-my-exercises",
+    "gym-log-weight-entries",
     "gym-log-profile",
     "gym-log-editing-template",
     "gym-log-started-at",
     "gym-log-active-template-workout",
   ].forEach((key) => localStorage.removeItem(key));
   sessionStorage.removeItem("gym-log-welcome-played");
+  sessionStorage.removeItem("gym-log-intro-played");
 
   document.querySelector("#profileNameSetup").value = "";
   document.querySelector("#profileWeightSetup").value = "";
   document.querySelector("#profileAgeSetup").value = "";
-  showView("onboarding");
+  document.querySelector("[name='genderSetup'][value='male']").checked = true;
+  document.querySelector("[name='goalSetup'][value='massa']").checked = true;
+  showView("intro");
 }
 
 function value(selector) {
   return document.querySelector(selector).value.trim();
+}
+
+function checkedValue(name) {
+  return document.querySelector(`[name='${name}']:checked`)?.value ?? "";
 }
 
 function addSetRow(set = { reps: "", weight: "" }) {
@@ -1016,7 +1315,11 @@ function normalizeSets(exercise) {
 function cloneTemplateExercises(exercises) {
   return exercises.map((exercise) => ({
     name: exercise.name,
+    type: exercise.type ?? "strength",
     rest: exercise.rest ?? 90,
+    durationMinutes: exercise.durationMinutes ?? null,
+    durationSeconds: exercise.durationSeconds ?? null,
+    stretchSets: getStretchSets(exercise),
     sets: normalizeSets(exercise).map((set) => ({
       weight: set.weight,
       reps: set.reps,
@@ -1028,7 +1331,11 @@ function cloneSessionExercises(exercises) {
   return exercises.map((exercise) => ({
     id: crypto.randomUUID(),
     name: exercise.name,
+    type: exercise.type ?? "strength",
     rest: exercise.rest ?? 90,
+    durationMinutes: exercise.durationMinutes ?? null,
+    durationSeconds: exercise.durationSeconds ?? null,
+    stretchSets: getStretchSets(exercise),
     sets: normalizeSets(exercise).map((set) => ({
       weight: set.weight,
       reps: set.reps,
@@ -1041,7 +1348,7 @@ function getProgressItems() {
   const performances = new Map();
 
   [...state.history].reverse().forEach((workout) => {
-    const groupedExercises = groupExercisesByName(workout.exercises);
+    const groupedExercises = groupExercisesByName(workout.exercises.filter((exercise) => (exercise.type ?? "strength") === "strength"));
 
     groupedExercises.forEach((sets, key) => {
       const item = buildPerformance(key, sets, workout.date);
@@ -1070,12 +1377,20 @@ function getProgressItems() {
     .sort((a, b) => Math.abs(b.strengthDelta) - Math.abs(a.strengthDelta));
 }
 
-function getExerciseSuggestions(query = "") {
+function getExerciseSuggestions(query = "", type = currentExerciseType) {
   const suggestions = new Map();
   const normalizedQuery = exerciseKey(query);
 
+  state.myExercises.forEach((exercise) => {
+    if ((exercise.type ?? "strength") !== type) return;
+    const key = exerciseKey(exercise.name);
+    if (!key || suggestions.has(key)) return;
+    suggestions.set(key, exercise.name.trim());
+  });
+
   state.history.forEach((workout) => {
     workout.exercises.forEach((exercise) => {
+      if ((exercise.type ?? "strength") !== type) return;
       const key = exerciseKey(exercise.name);
       if (!key || suggestions.has(key)) return;
       suggestions.set(key, exercise.name.trim());
@@ -1084,6 +1399,7 @@ function getExerciseSuggestions(query = "") {
 
   state.templates.forEach((template) => {
     template.exercises.forEach((exercise) => {
+      if ((exercise.type ?? "strength") !== type) return;
       const key = exerciseKey(exercise.name);
       if (!key || suggestions.has(key)) return;
       suggestions.set(key, exercise.name.trim());
@@ -1148,6 +1464,53 @@ function estimatedStrength(set) {
   return set.weight * (1 + set.reps / 30);
 }
 
+function countSessionSets(exercises) {
+  return exercises.reduce((sum, exercise) => sum + countExerciseSets(exercise), 0);
+}
+
+function countExerciseSets(exercise) {
+  const type = exercise.type ?? "strength";
+  if (type === "stretching") return getStretchSets(exercise);
+  if (type === "cardio") return 0;
+  return normalizeSets(exercise).length;
+}
+
+function isWeightUpdateDue(lastDate) {
+  if (!lastDate) return true;
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  return Date.now() - new Date(lastDate).getTime() >= weekMs;
+}
+
+function weightTrendCopy(goal, delta, entriesCount) {
+  if (entriesCount < 2 || delta === 0) return "monitoraggio attivo";
+  if (goal === "perdere-peso") return delta < 0 ? "in linea" : "da rivedere";
+  return delta > 0 ? "in linea" : "da rivedere";
+}
+
+function exerciseTypeLabel(type) {
+  if (type === "cardio") return "Cardio";
+  if (type === "stretching") return "Stretching";
+  return "Forza";
+}
+
+function getStretchSets(exercise) {
+  return Number(exercise.stretchSets ?? exercise.reps) || 1;
+}
+
+function welcomeWord(gender) {
+  if (gender === "female") return "Benvenuta";
+  if (gender === "neutral") return "Benvenutə";
+  return "Benvenuto";
+}
+
+function inferGender(name = "") {
+  const normalized = exerciseKey(name);
+  if (!normalized) return "neutral";
+  const maleAEndings = new Set(["andrea", "luca", "nicola", "elia"]);
+  if (maleAEndings.has(normalized)) return "male";
+  return normalized.endsWith("a") ? "female" : "male";
+}
+
 function exerciseKey(name) {
   return name.trim().toLocaleLowerCase("it-IT");
 }
@@ -1168,6 +1531,14 @@ function formatSigned(number, fractionDigits = 1) {
 
 function formatDate(date) {
   return new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short" }).format(new Date(date));
+}
+
+function formatExerciseDuration(exercise) {
+  if ((exercise.type ?? "strength") === "stretching") {
+    return `${formatNumber(Number(exercise.durationSeconds ?? exercise.durationMinutes) || 0)} sec`;
+  }
+
+  return `${formatNumber(Number(exercise.durationMinutes) || 0)} min`;
 }
 
 function formatHistoryDate(date) {
@@ -1222,6 +1593,8 @@ function persist() {
   saveCurrent();
   localStorage.setItem("gym-log-history", JSON.stringify(state.history));
   saveTemplates();
+  saveMyExercises();
+  saveWeightEntries();
 }
 
 function saveCurrent() {
@@ -1258,6 +1631,14 @@ function saveTemplates() {
   localStorage.setItem("gym-log-templates", JSON.stringify(state.templates));
 }
 
+function saveMyExercises() {
+  localStorage.setItem("gym-log-my-exercises", JSON.stringify(state.myExercises));
+}
+
+function saveWeightEntries() {
+  localStorage.setItem("gym-log-weight-entries", JSON.stringify(state.weightEntries));
+}
+
 function saveProfile() {
   localStorage.setItem("gym-log-profile", JSON.stringify(state.profile));
 }
@@ -1274,7 +1655,7 @@ function escapeAttribute(text) {
 
 resetSetRows();
 render();
-showView(state.profile ? "home" : "onboarding");
+showView(introPlayed ? (state.profile ? "home" : "onboarding") : "intro");
 setInterval(renderDuration, 1000);
 
 if ("serviceWorker" in navigator) {

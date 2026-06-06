@@ -59,10 +59,15 @@ body.splash-active .app-shell {
 
 .topbar {
   display: flex;
+  flex-direction: row-reverse;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 16px;
+}
+
+.topbar > div {
+  text-align: right;
 }
 
 .eyebrow {
@@ -90,6 +95,32 @@ h2 {
 
 .view[hidden] {
   display: none;
+}
+
+.intro-view {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.intro-copy {
+  display: grid;
+  gap: 14px;
+  max-width: min(92vw, 620px);
+  text-align: center;
+  animation: splash-welcome-in 4200ms ease-out both;
+}
+
+.intro-copy h1 {
+  font-size: clamp(2.3rem, 11vw, 5.6rem);
+  line-height: 1.02;
+}
+
+.intro-copy p:last-child {
+  color: var(--muted);
+  font-size: clamp(1rem, 4vw, 1.25rem);
+  line-height: 1.45;
 }
 
 .home-view {
@@ -363,6 +394,41 @@ body.splash-active .home-hero h1 {
   line-height: 1.05;
 }
 
+.segmented-control {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+  gap: 8px;
+}
+
+.segmented-control label {
+  min-width: 0;
+}
+
+.segmented-control input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.segmented-control span {
+  display: grid;
+  min-height: 44px;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #14181c;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 850;
+  text-align: center;
+}
+
+.segmented-control input:checked + span {
+  border-color: rgba(96, 211, 148, 0.58);
+  background: rgba(96, 211, 148, 0.16);
+  color: var(--accent);
+}
+
 .section-heading button,
 .set-heading button,
 .quick-row button,
@@ -403,6 +469,7 @@ svg {
 .workout-list,
 .progress-panel,
 .history-panel,
+.weight-progress-panel,
 .danger-panel {
   border: 1px solid var(--line);
   background: rgba(27, 31, 35, 0.92);
@@ -429,6 +496,7 @@ svg {
 .workout-list,
 .progress-panel,
 .history-panel,
+.weight-progress-panel,
 .danger-panel {
   display: grid;
   gap: 12px;
@@ -462,6 +530,10 @@ svg {
 .field input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(96, 211, 148, 0.18);
+}
+
+.duration-field {
+  margin-top: 12px;
 }
 
 .suggestions {
@@ -602,6 +674,7 @@ svg {
 .templates-panel,
 .workout-list,
 .progress-panel,
+.weight-progress-panel,
 .history-panel {
   margin-top: 12px;
 }
@@ -665,7 +738,8 @@ svg {
 .history-template-row button,
 .danger-panel button,
 .inline-exercise-controls button,
-.inline-rest button {
+.inline-rest button,
+.library-row button {
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -791,7 +865,9 @@ ul {
 .exercise-card,
 .progress-card,
 .template-card,
-.history-card {
+.history-card,
+.library-row,
+.library-group {
   display: grid;
   gap: 12px;
   border: 1px solid var(--line);
@@ -922,6 +998,63 @@ ul {
   font-size: 0.82rem;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.type-label {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.weekly-weight-form,
+.inline-form {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+#templateHistoryList,
+#myExercisesList {
+  margin-top: 12px;
+}
+
+.weight-card {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.library-row {
+  grid-template-columns: minmax(0, 1fr) 34px;
+  align-items: center;
+}
+
+.library-group {
+  gap: 10px;
+  background: rgba(27, 31, 35, 0.76);
+}
+
+.library-group h3 {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.library-group ul {
+  gap: 8px;
+}
+
+.library-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 800;
 }
 
 .progress-card header span {

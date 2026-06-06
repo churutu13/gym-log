@@ -14,6 +14,14 @@
   </head>
   <body>
     <main class="app-shell">
+      <section class="view intro-view" id="introView" hidden>
+        <div class="intro-copy">
+          <p class="eyebrow">Kilo</p>
+          <h1>Il tuo allenamento, tenuto in ordine.</h1>
+          <p>Kilo ti aiuta a salvare sessioni, esercizi e progressi senza rumore: pochi gesti, dati chiari, e una traccia gentile di come stai crescendo settimana dopo settimana.</p>
+        </div>
+      </section>
+
       <section class="view onboarding-view" id="onboardingView" hidden>
         <div class="onboarding-track">
           <article class="onboarding-card">
@@ -25,12 +33,44 @@
             </label>
           </article>
           <article class="onboarding-card">
+            <p class="eyebrow">Saluto</p>
+            <h2>Come vuoi essere accolta/o?</h2>
+            <div class="segmented-control" role="group" aria-label="Genere">
+              <label>
+                <input type="radio" name="genderSetup" value="male" checked />
+                <span>M</span>
+              </label>
+              <label>
+                <input type="radio" name="genderSetup" value="female" />
+                <span>F</span>
+              </label>
+              <label>
+                <input type="radio" name="genderSetup" value="neutral" />
+                <span>Preferisco non specificarlo</span>
+              </label>
+            </div>
+          </article>
+          <article class="onboarding-card">
             <p class="eyebrow">Profilo atleta</p>
             <h2>Peso attuale</h2>
             <label class="field">
               <span>Kg</span>
               <input id="profileWeightSetup" type="number" min="0" step="0.1" inputmode="decimal" />
             </label>
+          </article>
+          <article class="onboarding-card">
+            <p class="eyebrow">Obiettivo</p>
+            <h2>Che direzione vuoi seguire?</h2>
+            <div class="segmented-control" role="group" aria-label="Obiettivo">
+              <label>
+                <input type="radio" name="goalSetup" value="massa" checked />
+                <span>Massa</span>
+              </label>
+              <label>
+                <input type="radio" name="goalSetup" value="perdere-peso" />
+                <span>Perdere peso</span>
+              </label>
+            </div>
           </article>
           <article class="onboarding-card">
             <p class="eyebrow">Ultimo dettaglio</p>
@@ -96,11 +136,35 @@
         </section>
 
         <form class="entry-panel" id="exerciseForm">
+          <div class="segmented-control" id="exerciseTypeGroup" role="group" aria-label="Tipo esercizio">
+            <label>
+              <input type="radio" name="exerciseType" value="strength" checked />
+              <span>Forza</span>
+            </label>
+            <label>
+              <input type="radio" name="exerciseType" value="cardio" />
+              <span>Cardio</span>
+            </label>
+            <label>
+              <input type="radio" name="exerciseType" value="stretching" />
+              <span>Stretching</span>
+            </label>
+          </div>
           <label class="field field-wide">
             <span>Esercizio</span>
             <input id="exerciseName" type="text" inputmode="text" autocomplete="off" required />
           </label>
           <div id="exerciseSuggestions" class="suggestions" hidden></div>
+
+          <label class="field duration-field" id="durationField" hidden>
+            <span id="durationLabel">Durata</span>
+            <input id="exerciseDuration" type="number" min="1" max="600" inputmode="numeric" />
+          </label>
+
+          <label class="field duration-field" id="stretchingSetsField" hidden>
+            <span>Serie</span>
+            <input id="stretchingSets" type="number" min="1" max="100" inputmode="numeric" />
+          </label>
 
           <div class="set-builder">
             <div class="set-heading">
@@ -154,6 +218,7 @@
           </div>
           <button class="ghost-button" data-view-target="home" type="button">Home</button>
         </header>
+        <section class="weight-progress-panel" id="weightProgressPanel"></section>
         <div id="progressPageEmpty" class="empty-state">Salva almeno due sessioni con lo stesso esercizio.</div>
         <ul id="progressPageList"></ul>
       </section>
@@ -223,12 +288,70 @@
             <span>Peso</span>
             <input id="profileWeight" type="number" min="0" step="0.1" inputmode="decimal" />
           </label>
+          <div class="segmented-control" role="group" aria-label="Genere">
+            <label>
+              <input type="radio" name="profileGender" value="male" />
+              <span>M</span>
+            </label>
+            <label>
+              <input type="radio" name="profileGender" value="female" />
+              <span>F</span>
+            </label>
+            <label>
+              <input type="radio" name="profileGender" value="neutral" />
+              <span>Preferisco non specificarlo</span>
+            </label>
+          </div>
+          <div class="segmented-control" role="group" aria-label="Obiettivo">
+            <label>
+              <input type="radio" name="profileGoal" value="massa" />
+              <span>Massa</span>
+            </label>
+            <label>
+              <input type="radio" name="profileGoal" value="perdere-peso" />
+              <span>Perdere peso</span>
+            </label>
+          </div>
           <label class="field">
             <span>Età</span>
             <input id="profileAge" type="number" min="0" max="120" inputmode="numeric" />
           </label>
           <button class="primary-action" type="submit">Salva dati</button>
         </form>
+        <section class="history-panel exercise-library-panel">
+          <details>
+            <summary>
+              <div>
+                <h2>I miei esercizi</h2>
+                <span id="myExercisesSummary">0 salvati</span>
+              </div>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </summary>
+            <form class="inline-form" id="myExerciseForm">
+              <div class="segmented-control" role="group" aria-label="Tipo esercizio salvato">
+                <label>
+                  <input type="radio" name="myExerciseType" value="strength" checked />
+                  <span>Forza</span>
+                </label>
+                <label>
+                  <input type="radio" name="myExerciseType" value="cardio" />
+                  <span>Cardio</span>
+                </label>
+                <label>
+                  <input type="radio" name="myExerciseType" value="stretching" />
+                  <span>Stretching</span>
+                </label>
+              </div>
+              <label class="field">
+                <span>Nome esercizio</span>
+                <input id="myExerciseName" type="text" inputmode="text" autocomplete="off" />
+              </label>
+              <button class="primary-action" type="submit">Aggiungi esercizio</button>
+            </form>
+            <div id="myExercisesEmpty" class="empty-state">Nessun esercizio salvato.</div>
+            <ul id="myExercisesList"></ul>
+          </details>
+        </section>
         <section class="danger-panel">
           <div>
             <h2>Riparti da zero</h2>
