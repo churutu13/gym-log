@@ -350,13 +350,8 @@ function openStartPanel() {
     replacingActiveWorkout = true;
   }
 
-  if (!state.sessionStartedAt) {
-    state.sessionStartedAt = new Date().toISOString();
-    saveCurrent();
-  }
   document.querySelector("#startSheet").hidden = false;
   renderStartTemplates();
-  renderDuration();
 }
 
 function closeStartPanel() {

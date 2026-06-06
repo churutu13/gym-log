@@ -430,6 +430,8 @@ svg {
 .progress-panel,
 .history-panel,
 .danger-panel {
+  display: grid;
+  gap: 12px;
   padding: 14px;
   border-radius: var(--radius);
 }
@@ -592,6 +594,11 @@ svg {
   font-weight: 850;
 }
 
+#profileForm .primary-action,
+#templatePageList {
+  margin-top: 6px;
+}
+
 .templates-panel,
 .workout-list,
 .progress-panel,
@@ -645,8 +652,9 @@ svg {
 
 .template-editor {
   display: grid;
-  gap: 8px;
+  gap: 12px;
   margin-top: 10px;
+  margin-bottom: 8px;
 }
 
 .template-editor button,
@@ -702,6 +710,35 @@ svg {
 
 .template-actions .danger-action {
   color: var(--warn);
+}
+
+.primary-action,
+#createBlankTemplate,
+#toggleTemplateAdd,
+[data-history-template],
+[data-add-set-to-exercise],
+.set-heading button {
+  border-color: rgba(96, 211, 148, 0.4) !important;
+  background: var(--accent) !important;
+  color: #07120b !important;
+}
+
+[data-template-delete],
+[data-history-delete],
+#resetDatabase,
+.delete-row {
+  border-color: rgba(242, 109, 91, 0.42) !important;
+  background: rgba(242, 109, 91, 0.14) !important;
+  color: var(--warn) !important;
+}
+
+[data-template-edit],
+[data-history-rename],
+#toggleTemplateEdit,
+#closeStartSheet,
+#finishWorkout {
+  background: var(--panel-strong);
+  color: var(--text);
 }
 
 .template-workout-actions {
