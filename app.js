@@ -35,6 +35,8 @@ const exerciseSuggestions = document.querySelector("#exerciseSuggestions");
 const emptyState = document.querySelector("#emptyState");
 const setRows = document.querySelector("#setRows");
 let selectedRest = 90;
+let currentView = "";
+let welcomePlayed = sessionStorage.getItem("gym-log-welcome-played") === "true";
 
 if (state.exercises.length && !state.sessionStartedAt) {
   state.sessionStartedAt = new Date().toISOString();
@@ -55,10 +57,14 @@ document.querySelector("#addSet").addEventListener("click", () => {
 });
 
 document.querySelector("#createBlankTemplate").addEventListener("click", createBlankTemplate);
-document.querySelector("#newWorkoutButton").addEventListener("click", openStartPanel);
+document.querySelector("#newWorkoutButton").addEventListener("click", (event) => {
+  event.stopPropagation();
+  openStartPanel();
+});
 document.querySelector("#startBlankWorkout").addEventListener("click", startBlankWorkout);
 document.querySelector("#closeStartSheet").addEventListener("click", closeStartPanel);
 document.querySelector("#finishOnboarding").addEventListener("click", finishOnboarding);
+document.querySelector("#activeWorkoutPill").addEventListener("click", () => showView("workout"));
 
 document.querySelectorAll("[data-view-target]").forEach((button) => {
   button.addEventListener("click", () => {
@@ -201,7 +207,7 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
   render();
 });
 
-document.querySelector("#clearHistory").addEventListener("click", () => {
+document.querySelector("#clearHistory")?.addEventListener("click", () => {
   if (!state.history.length || !confirm("Cancellare tutto lo storico?")) return;
   state.history = [];
   persist();
@@ -227,11 +233,32 @@ historyList.addEventListener("click", (event) => {
 });
 
 function showView(viewName) {
+  currentView = viewName;
   Object.entries(views).forEach(([name, view]) => {
     view.hidden = name !== viewName;
   });
   closeStartPanel();
+  if (viewName === "home") {
+    playHomeWelcome();
+  }
   render();
+}
+
+function playHomeWelcome() {
+  const homeView = document.querySelector("#homeView");
+  homeView.classList.remove("home-ready");
+
+  if (welcomePlayed) {
+    homeView.classList.add("home-ready");
+    return;
+  }
+
+  window.setTimeout(() => {
+    homeView.classList.add("home-ready");
+    welcomePlayed = true;
+    sessionStorage.setItem("gym-log-welcome-played", "true");
+    renderActiveWorkoutPill();
+  }, 2300);
 }
 
 function openStartPanel() {
@@ -249,10 +276,11 @@ function closeStartPanel() {
 }
 
 function startBlankWorkout() {
-  if (state.exercises.length && !confirm("Sostituire la sessione corrente?")) return;
+  const isReplacing = state.exercises.length > 0;
+  if (isReplacing && !confirm("Sostituire la sessione corrente?")) return;
   state.editingTemplate = null;
   state.exercises = [];
-  state.sessionStartedAt = state.sessionStartedAt ?? new Date().toISOString();
+  state.sessionStartedAt = isReplacing ? new Date().toISOString() : state.sessionStartedAt ?? new Date().toISOString();
   saveCurrent();
   render();
   showView("workout");
@@ -261,10 +289,11 @@ function startBlankWorkout() {
 function startTemplateWorkout(templateId) {
   const template = state.templates.find((item) => item.id === templateId);
   if (!template) return;
-  if (state.exercises.length && !confirm("Sostituire la sessione corrente?")) return;
+  const isReplacing = state.exercises.length > 0;
+  if (isReplacing && !confirm("Sostituire la sessione corrente?")) return;
   state.editingTemplate = null;
   state.exercises = cloneSessionExercises(template.exercises);
-  state.sessionStartedAt = state.sessionStartedAt ?? new Date().toISOString();
+  state.sessionStartedAt = isReplacing ? new Date().toISOString() : state.sessionStartedAt ?? new Date().toISOString();
   saveCurrent();
   render();
   showView("workout");
@@ -286,6 +315,7 @@ function render() {
 
   renderProfile();
   renderWorkoutMode();
+  renderActiveWorkoutPill();
   document.querySelector("#summaryExercises").textContent = state.exercises.length;
   document.querySelector("#summarySets").textContent = totalSets;
   renderDuration();
@@ -304,15 +334,26 @@ function render() {
 
 function renderWorkoutMode() {
   const isTemplate = Boolean(state.editingTemplate);
+  document.body.classList.toggle("template-mode", isTemplate);
+  document.querySelector("#workoutEyebrow").textContent = isTemplate
+    ? "Template"
+    : "Allenamento";
   document.querySelector("#workoutTitle").textContent = isTemplate
-    ? state.editingTemplate.name
+    ? `Crea ${state.editingTemplate.name}`
     : "Sessione attiva";
   document.querySelector("#workoutListTitle").textContent = isTemplate
     ? "Allenamento in modifica"
     : "Sessione";
   document.querySelector("#finishWorkout").textContent = isTemplate
     ? "Salva template"
-    : "Salva";
+    : "Fine allenamento";
+}
+
+function renderActiveWorkoutPill() {
+  const pill = document.querySelector("#activeWorkoutPill");
+  const isActiveWorkout = Boolean(state.sessionStartedAt && !state.editingTemplate);
+  const homeIntroRunning = currentView === "home" && !document.querySelector("#homeView").classList.contains("home-ready");
+  pill.hidden = !isActiveWorkout || currentView === "workout" || homeIntroRunning;
 }
 
 function renderProfile() {

@@ -72,7 +72,7 @@
       <section class="view workout-view" id="workoutView" hidden>
         <header class="topbar">
           <div>
-            <p class="eyebrow">Allenamento</p>
+            <p class="eyebrow" id="workoutEyebrow">Allenamento</p>
             <h1 id="workoutTitle">Sessione attiva</h1>
           </div>
           <button class="ghost-button" data-view-target="home" type="button">Home</button>
@@ -130,66 +130,13 @@
         <section class="workout-list" aria-label="Esercizi registrati">
           <div class="section-heading">
             <h2 id="workoutListTitle">Sessione</h2>
-            <button id="finishWorkout" type="button">Salva</button>
+            <button id="finishWorkout" type="button">Fine allenamento</button>
           </div>
           <div id="emptyState" class="empty-state">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8h10M7 12h10M7 16h6M5 4h14v18l-3-2-3 2-3-2-3 2V4Z" /></svg>
             <p>Inserisci il primo esercizio per iniziare la sessione.</p>
           </div>
           <ul id="exerciseList"></ul>
-        </section>
-
-        <section class="progress-panel compact-panel" aria-label="Progressive overload">
-          <details>
-            <summary>
-              <div>
-                <h2>Progressi</h2>
-                <span id="progressSummary">Ultima vs precedente</span>
-              </div>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-            </summary>
-            <div id="progressEmpty" class="empty-state">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 5-5 4 4 7-8M15 7h5v5" /></svg>
-              <p>Salva almeno due sessioni con lo stesso esercizio per vedere il progresso.</p>
-            </div>
-            <ul id="progressList"></ul>
-          </details>
-        </section>
-
-        <section class="templates-panel compact-panel" aria-label="Template allenamenti">
-          <details>
-            <summary>
-              <div>
-                <h2>Template</h2>
-                <span id="templateSummary">0 salvati</span>
-              </div>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-            </summary>
-            <div class="template-editor">
-              <button data-view-target="templates" type="button">Gestisci allenamenti</button>
-            </div>
-            <div id="templateEmpty" class="empty-state">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
-              <p>Prepara una sessione e salvala come template.</p>
-            </div>
-            <ul id="templateList"></ul>
-          </details>
-        </section>
-
-        <section class="history-panel compact-panel" aria-label="Storico allenamenti">
-          <details>
-            <summary>
-              <div>
-                <h2>Storico</h2>
-                <span id="historySummary">0 sessioni</span>
-              </div>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-            </summary>
-            <div class="panel-actions">
-              <button id="clearHistory" type="button">Reset</button>
-            </div>
-            <ul id="historyList"></ul>
-          </details>
         </section>
       </section>
 
@@ -201,7 +148,13 @@
           </div>
           <button class="ghost-button" data-view-target="home" type="button">Home</button>
         </header>
+        <div id="progressEmpty" class="empty-state" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 5-5 4 4 7-8M15 7h5v5" /></svg>
+          <p>Salva almeno due sessioni con lo stesso esercizio per vedere il progresso.</p>
+        </div>
         <div id="progressPageEmpty" class="empty-state">Salva almeno due sessioni con lo stesso esercizio.</div>
+        <span id="progressSummary" hidden>Ultima vs precedente</span>
+        <ul id="progressList" hidden></ul>
         <ul id="progressPageList"></ul>
       </section>
 
@@ -225,6 +178,9 @@
             </div>
           </div>
           <div id="templatePageEmpty" class="empty-state">Nessun template salvato.</div>
+          <span id="templateSummary" hidden>0 salvati</span>
+          <div id="templateEmpty" class="empty-state" hidden></div>
+          <ul id="templateList" hidden></ul>
           <ul id="templatePageList"></ul>
         </section>
         <section class="history-panel">
@@ -239,6 +195,8 @@
             <ul id="templateHistoryList"></ul>
           </details>
         </section>
+        <span id="historySummary" hidden>0 sessioni</span>
+        <ul id="historyList" hidden></ul>
       </section>
 
       <section class="view profile-view" id="profileView" hidden>
@@ -277,6 +235,10 @@
           <ul id="startTemplateList"></ul>
         </div>
       </section>
+      <button class="active-workout-pill" id="activeWorkoutPill" type="button" hidden>
+        <span></span>
+        Allenamento in corso
+      </button>
     </main>
 
     <script src="app.js"></script>
