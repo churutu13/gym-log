@@ -79,19 +79,19 @@ h2 {
 }
 
 .home-hero {
-  min-height: 170px;
+  min-height: 42svh;
   display: grid;
-  align-content: end;
+  align-content: center;
   margin-bottom: 16px;
 }
 
 .home-hero h1 {
   font-size: 2.35rem;
   line-height: 1.02;
+  animation: welcome-in 780ms ease both;
 }
 
-.home-actions,
-.start-panel {
+.home-actions {
   display: grid;
   gap: 10px;
 }
@@ -126,18 +126,6 @@ h2 {
   font-weight: 800;
 }
 
-.start-panel {
-  margin-top: 14px;
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: rgba(27, 31, 35, 0.92);
-}
-
-.start-panel h2 {
-  margin-bottom: 2px;
-}
-
 .start-template-button {
   display: flex;
   width: 100%;
@@ -155,6 +143,56 @@ h2 {
 
 .muted-copy {
   margin-bottom: 12px;
+}
+
+.choice-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  align-items: end;
+  padding: 16px;
+  background: rgba(17, 19, 21, 0.72);
+}
+
+.choice-sheet[hidden] {
+  display: none;
+}
+
+.choice-card {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 520px);
+  margin: 0 auto calc(env(safe-area-inset-bottom) + 8px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #1b1f23;
+  padding: 14px;
+  animation: sheet-in 180ms ease both;
+}
+
+@keyframes welcome-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .onboarding-view {

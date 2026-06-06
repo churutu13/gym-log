@@ -3,6 +3,7 @@ const state = {
   history: load("gym-log-history", []),
   templates: load("gym-log-templates", []),
   profile: load("gym-log-profile", null),
+  editingTemplate: load("gym-log-editing-template", null),
   sessionStartedAt: load("gym-log-started-at", null),
 };
 
@@ -20,9 +21,11 @@ const historyList = document.querySelector("#historyList");
 const historySummary = document.querySelector("#historySummary");
 const templateList = document.querySelector("#templateList");
 const templatePageList = document.querySelector("#templatePageList");
+const templateHistoryList = document.querySelector("#templateHistoryList");
 const templateEmpty = document.querySelector("#templateEmpty");
 const templatePageEmpty = document.querySelector("#templatePageEmpty");
 const templateSummary = document.querySelector("#templateSummary");
+const templateHistorySummary = document.querySelector("#templateHistorySummary");
 const progressList = document.querySelector("#progressList");
 const progressPageList = document.querySelector("#progressPageList");
 const progressEmpty = document.querySelector("#progressEmpty");
@@ -51,11 +54,10 @@ document.querySelector("#addSet").addEventListener("click", () => {
   addSetRow(getLastSetValue());
 });
 
-document.querySelector("#saveTemplate").addEventListener("click", saveTemplateFromCurrent);
-document.querySelector("#saveTemplatePage").addEventListener("click", saveTemplateFromCurrent);
 document.querySelector("#createBlankTemplate").addEventListener("click", createBlankTemplate);
 document.querySelector("#newWorkoutButton").addEventListener("click", openStartPanel);
 document.querySelector("#startBlankWorkout").addEventListener("click", startBlankWorkout);
+document.querySelector("#closeStartSheet").addEventListener("click", closeStartPanel);
 document.querySelector("#finishOnboarding").addEventListener("click", finishOnboarding);
 
 document.querySelectorAll("[data-view-target]").forEach((button) => {
@@ -74,10 +76,10 @@ document.addEventListener("click", (event) => {
 });
 
 document.addEventListener("click", (event) => {
-  const startPanel = document.querySelector("#startPanel");
-  if (startPanel.hidden) return;
-  if (event.target.closest("#startPanel") || event.target.closest("#newWorkoutButton")) return;
-  startPanel.hidden = true;
+  const startSheet = document.querySelector("#startSheet");
+  if (startSheet.hidden) return;
+  if (event.target.closest(".choice-card") || event.target.closest("#newWorkoutButton")) return;
+  closeStartPanel();
 });
 
 exerciseSuggestions.addEventListener("click", (event) => {
@@ -104,6 +106,12 @@ templatePageList.addEventListener("click", (event) => {
   handleTemplateListClick(event);
 });
 
+templateHistoryList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-history-template]");
+  if (!button) return;
+  saveTemplateFromHistory(button.dataset.historyTemplate);
+});
+
 document.querySelector("#startTemplateList").addEventListener("click", (event) => {
   const button = event.target.closest("[data-start-template]");
   if (!button) return;
@@ -124,7 +132,7 @@ document.querySelector("#profileForm").addEventListener("submit", (event) => {
 
 function handleTemplateListClick(event) {
   const loadButton = event.target.closest("[data-template-load]");
-  const updateButton = event.target.closest("[data-template-update]");
+  const editButton = event.target.closest("[data-template-edit]");
   const deleteButton = event.target.closest("[data-template-delete]");
   const historyButton = event.target.closest("[data-history-template]");
 
@@ -132,8 +140,8 @@ function handleTemplateListClick(event) {
     loadTemplate(loadButton.dataset.templateLoad);
   }
 
-  if (updateButton) {
-    updateTemplate(updateButton.dataset.templateUpdate);
+  if (editButton) {
+    editTemplate(editButton.dataset.templateEdit);
   }
 
   if (deleteButton) {
@@ -148,7 +156,7 @@ function handleTemplateListClick(event) {
 form.addEventListener("submit", (event) => {
   event.preventDefault();
 
-  if (!state.sessionStartedAt) {
+  if (!state.editingTemplate && !state.sessionStartedAt) {
     state.sessionStartedAt = new Date().toISOString();
   }
 
@@ -174,6 +182,11 @@ form.addEventListener("submit", (event) => {
 });
 
 document.querySelector("#finishWorkout").addEventListener("click", () => {
+  if (state.editingTemplate) {
+    saveEditingTemplate();
+    return;
+  }
+
   if (!state.exercises.length) return;
 
   state.history.unshift({
@@ -217,7 +230,7 @@ function showView(viewName) {
   Object.entries(views).forEach(([name, view]) => {
     view.hidden = name !== viewName;
   });
-  document.querySelector("#startPanel").hidden = true;
+  closeStartPanel();
   render();
 }
 
@@ -226,14 +239,18 @@ function openStartPanel() {
     state.sessionStartedAt = new Date().toISOString();
     saveCurrent();
   }
-  const startPanel = document.querySelector("#startPanel");
-  startPanel.hidden = !startPanel.hidden;
+  document.querySelector("#startSheet").hidden = false;
   renderStartTemplates();
   renderDuration();
 }
 
+function closeStartPanel() {
+  document.querySelector("#startSheet").hidden = true;
+}
+
 function startBlankWorkout() {
   if (state.exercises.length && !confirm("Sostituire la sessione corrente?")) return;
+  state.editingTemplate = null;
   state.exercises = [];
   state.sessionStartedAt = state.sessionStartedAt ?? new Date().toISOString();
   saveCurrent();
@@ -245,6 +262,7 @@ function startTemplateWorkout(templateId) {
   const template = state.templates.find((item) => item.id === templateId);
   if (!template) return;
   if (state.exercises.length && !confirm("Sostituire la sessione corrente?")) return;
+  state.editingTemplate = null;
   state.exercises = cloneSessionExercises(template.exercises);
   state.sessionStartedAt = state.sessionStartedAt ?? new Date().toISOString();
   saveCurrent();
@@ -267,6 +285,7 @@ function render() {
   const totalSets = state.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
 
   renderProfile();
+  renderWorkoutMode();
   document.querySelector("#summaryExercises").textContent = state.exercises.length;
   document.querySelector("#summarySets").textContent = totalSets;
   renderDuration();
@@ -276,10 +295,24 @@ function render() {
   renderExerciseSuggestions();
   renderTemplates();
   renderStartTemplates();
+  renderTemplateHistory();
   renderProgress();
   renderProgressPage();
   renderHistorySummary();
   historyList.innerHTML = state.history.length ? state.history.map(renderHistory).join("") : "<li class=\"empty-state\">Nessun allenamento salvato.</li>";
+}
+
+function renderWorkoutMode() {
+  const isTemplate = Boolean(state.editingTemplate);
+  document.querySelector("#workoutTitle").textContent = isTemplate
+    ? state.editingTemplate.name
+    : "Sessione attiva";
+  document.querySelector("#workoutListTitle").textContent = isTemplate
+    ? "Allenamento in modifica"
+    : "Sessione";
+  document.querySelector("#finishWorkout").textContent = isTemplate
+    ? "Salva template"
+    : "Salva";
 }
 
 function renderProfile() {
@@ -394,6 +427,31 @@ function renderStartTemplates() {
   `).join("");
 }
 
+function renderTemplateHistory() {
+  templateHistorySummary.textContent = `${state.history.length} sessioni`;
+  templateHistoryList.innerHTML = state.history.length
+    ? state.history.map((workout) => {
+      const exerciseCount = workout.exercises.length;
+      const sets = workout.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
+
+      return `
+        <li class="history-card">
+          <div class="history-template-row">
+            <div>
+              <h3>${formatHistoryDate(workout.date)}</h3>
+              <div class="stats">
+                <span>${exerciseCount} esercizi</span>
+                <span>${sets} serie</span>
+              </div>
+            </div>
+            <button type="button" data-history-template="${workout.id}">Crea</button>
+          </div>
+        </li>
+      `;
+    }).join("")
+    : "<li class=\"empty-state\">Nessuna sessione nello storico.</li>";
+}
+
 function renderTemplate(template) {
   const exerciseCount = template.exercises.length;
   const sets = template.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
@@ -412,8 +470,8 @@ function renderTemplate(template) {
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
         </summary>
         <div class="template-actions">
-          <button type="button" data-template-load="${template.id}">Carica</button>
-          <button type="button" data-template-update="${template.id}">Aggiorna</button>
+          <button type="button" data-template-load="${template.id}">Usa</button>
+          <button type="button" data-template-edit="${template.id}">Modifica</button>
           <button type="button" data-template-delete="${template.id}">Elimina</button>
         </div>
         <ul class="saved-session-list">
@@ -495,26 +553,6 @@ function renderProgressItem(item) {
   `;
 }
 
-function saveTemplateFromCurrent() {
-  if (!state.exercises.length) {
-    alert("Aggiungi almeno un esercizio alla sessione.");
-    return;
-  }
-
-  const name = value("#templateName") || value("#templateNamePage");
-  if (!name) {
-    alert("Dai un nome al template.");
-    return;
-  }
-
-  saveTemplateFromExercises(name, state.exercises);
-
-  document.querySelector("#templateName").value = "";
-  document.querySelector("#templateNamePage").value = "";
-  saveTemplates();
-  render();
-}
-
 function createBlankTemplate() {
   const name = value("#templateNamePage");
   if (!name) {
@@ -528,16 +566,14 @@ function createBlankTemplate() {
     return;
   }
 
-  state.templates.unshift({
-    id: crypto.randomUUID(),
-    name,
-    exercises: [],
-    updatedAt: new Date().toISOString(),
-  });
-
+  if (state.exercises.length && !confirm("Sostituire la sessione corrente?")) return;
+  state.editingTemplate = { id: crypto.randomUUID(), name };
+  state.exercises = [];
+  state.sessionStartedAt = null;
   document.querySelector("#templateNamePage").value = "";
-  saveTemplates();
+  saveCurrent();
   render();
+  showView("workout");
 }
 
 function saveTemplateFromExercises(name, exercises) {
@@ -561,8 +597,7 @@ function saveTemplateFromHistory(workoutId) {
   const workout = state.history.find((item) => item.id === workoutId);
   if (!workout) return;
 
-  const fallbackName = `Template ${formatHistoryDate(workout.date)}`;
-  const name = prompt("Nome template", fallbackName);
+  const name = prompt("Nome allenamento");
   if (!name) return;
 
   saveTemplateFromExercises(name, workout.exercises);
@@ -571,37 +606,51 @@ function saveTemplateFromHistory(workoutId) {
   render();
 }
 
+function editTemplate(templateId) {
+  const template = state.templates.find((item) => item.id === templateId);
+  if (!template) return;
+  if (state.exercises.length && !state.editingTemplate && !confirm("Sostituire la sessione corrente?")) return;
+
+  state.editingTemplate = {
+    id: template.id,
+    name: template.name,
+  };
+  state.exercises = cloneSessionExercises(template.exercises);
+  state.sessionStartedAt = null;
+  saveCurrent();
+  render();
+  showView("workout");
+}
+
+function saveEditingTemplate() {
+  if (!state.editingTemplate) return;
+  if (!state.exercises.length) {
+    alert("Aggiungi almeno un esercizio prima di salvare il template.");
+    return;
+  }
+
+  saveTemplateFromExercises(state.editingTemplate.name, state.exercises);
+  state.editingTemplate = null;
+  state.exercises = [];
+  state.sessionStartedAt = null;
+  saveCurrent();
+  saveTemplates();
+  render();
+  showView("templates");
+}
+
 function loadTemplate(templateId) {
   const template = state.templates.find((item) => item.id === templateId);
   if (!template) return;
 
   if (state.exercises.length && !confirm("Sostituire la sessione corrente con questo template?")) return;
 
+  state.editingTemplate = null;
   state.exercises = cloneSessionExercises(template.exercises);
   state.sessionStartedAt = new Date().toISOString();
   saveCurrent();
   render();
   showView("workout");
-}
-
-function updateTemplate(templateId) {
-  if (!state.exercises.length) {
-    alert("Aggiungi almeno un esercizio alla sessione.");
-    return;
-  }
-
-  state.templates = state.templates.map((template) => {
-    if (template.id !== templateId) return template;
-
-    return {
-      ...template,
-      exercises: cloneTemplateExercises(state.exercises),
-      updatedAt: new Date().toISOString(),
-    };
-  });
-
-  saveTemplates();
-  render();
 }
 
 function deleteTemplate(templateId) {
@@ -890,6 +939,11 @@ function persist() {
 
 function saveCurrent() {
   localStorage.setItem("gym-log-current", JSON.stringify(state.exercises));
+  if (state.editingTemplate) {
+    localStorage.setItem("gym-log-editing-template", JSON.stringify(state.editingTemplate));
+  } else {
+    localStorage.removeItem("gym-log-editing-template");
+  }
   if (state.sessionStartedAt) {
     localStorage.setItem("gym-log-started-at", JSON.stringify(state.sessionStartedAt));
   } else {

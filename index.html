@@ -21,7 +21,7 @@
             <h1>Partiamo da te.</h1>
             <label class="field">
               <span>Nome</span>
-              <input id="profileNameSetup" type="text" inputmode="text" autocomplete="name" value="Roberto" />
+              <input id="profileNameSetup" type="text" inputmode="text" autocomplete="name" />
             </label>
           </article>
           <article class="onboarding-card">
@@ -67,19 +67,13 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" /></svg>
           </button>
         </div>
-        <section class="start-panel" id="startPanel" hidden>
-          <h2>Inizia allenamento</h2>
-          <button class="primary-action" id="startBlankWorkout" type="button">Da zero</button>
-          <div id="startTemplateEmpty" class="empty-state">Nessun template salvato.</div>
-          <ul id="startTemplateList"></ul>
-        </section>
       </section>
 
       <section class="view workout-view" id="workoutView" hidden>
         <header class="topbar">
           <div>
             <p class="eyebrow">Allenamento</p>
-            <h1>Sessione attiva</h1>
+            <h1 id="workoutTitle">Sessione attiva</h1>
           </div>
           <button class="ghost-button" data-view-target="home" type="button">Home</button>
         </header>
@@ -135,7 +129,7 @@
 
         <section class="workout-list" aria-label="Esercizi registrati">
           <div class="section-heading">
-            <h2>Sessione</h2>
+            <h2 id="workoutListTitle">Sessione</h2>
             <button id="finishWorkout" type="button">Salva</button>
           </div>
           <div id="emptyState" class="empty-state">
@@ -172,11 +166,7 @@
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
             </summary>
             <div class="template-editor">
-              <label class="field">
-                <span>Nome template</span>
-                <input id="templateName" type="text" inputmode="text" autocomplete="off" placeholder="Upper day" />
-              </label>
-              <button id="saveTemplate" type="button">Salva template</button>
+              <button data-view-target="templates" type="button">Gestisci allenamenti</button>
             </div>
             <div id="templateEmpty" class="empty-state">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
@@ -227,16 +217,27 @@
         <section class="templates-panel">
           <div class="template-editor">
             <label class="field">
-              <span>Nome template</span>
-              <input id="templateNamePage" type="text" inputmode="text" autocomplete="off" placeholder="Upper day" />
+              <span>Nome allenamento</span>
+              <input id="templateNamePage" type="text" inputmode="text" autocomplete="off" />
             </label>
             <div class="template-create-actions">
               <button id="createBlankTemplate" type="button">Crea da zero</button>
-              <button id="saveTemplatePage" type="button">Salva dalla sessione attiva</button>
             </div>
           </div>
           <div id="templatePageEmpty" class="empty-state">Nessun template salvato.</div>
           <ul id="templatePageList"></ul>
+        </section>
+        <section class="history-panel">
+          <details>
+            <summary>
+              <div>
+                <h2>Da storico</h2>
+                <span id="templateHistorySummary">0 sessioni</span>
+              </div>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </summary>
+            <ul id="templateHistoryList"></ul>
+          </details>
         </section>
       </section>
 
@@ -263,6 +264,18 @@
           </label>
           <button class="primary-action" type="submit">Salva dati</button>
         </form>
+      </section>
+
+      <section class="choice-sheet" id="startSheet" hidden>
+        <div class="choice-card">
+          <div class="section-heading">
+            <h2>Inizia allenamento</h2>
+            <button id="closeStartSheet" type="button">Chiudi</button>
+          </div>
+          <button class="primary-action" id="startBlankWorkout" type="button">Senza template</button>
+          <div id="startTemplateEmpty" class="empty-state">Nessun template salvato.</div>
+          <ul id="startTemplateList"></ul>
+        </div>
       </section>
     </main>
 
