@@ -17,7 +17,7 @@
       <section class="view onboarding-view" id="onboardingView" hidden>
         <div class="onboarding-track">
           <article class="onboarding-card">
-            <p class="eyebrow">Gym Log</p>
+            <p class="eyebrow">Benvenuto</p>
             <h1>Partiamo da te.</h1>
             <label class="field">
               <span>Nome</span>
@@ -45,8 +45,10 @@
       </section>
 
       <section class="view home-view" id="homeView" hidden>
+        <button class="profile-icon-button" data-view-target="profile" type="button" aria-label="Profilo atleta">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" /></svg>
+        </button>
         <header class="home-hero">
-          <p class="eyebrow">Gym Log</p>
           <h1 id="welcomeTitle">Benvenuto, Roberto</h1>
         </header>
         <div class="home-actions">
@@ -62,9 +64,9 @@
             <span>I tuoi allenamenti</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
           </button>
-          <button data-view-target="profile" type="button">
-            <span>Profilo atleta</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM4 21a8 8 0 0 1 16 0" /></svg>
+          <button data-view-target="history" type="button">
+            <span>Storico</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10M5 8h14M7 12h10M7 16h7M5 20h14" /></svg>
           </button>
         </div>
       </section>
@@ -148,13 +150,7 @@
           </div>
           <button class="ghost-button" data-view-target="home" type="button">Home</button>
         </header>
-        <div id="progressEmpty" class="empty-state" hidden>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m4 16 5-5 4 4 7-8M15 7h5v5" /></svg>
-          <p>Salva almeno due sessioni con lo stesso esercizio per vedere il progresso.</p>
-        </div>
         <div id="progressPageEmpty" class="empty-state">Salva almeno due sessioni con lo stesso esercizio.</div>
-        <span id="progressSummary" hidden>Ultima vs precedente</span>
-        <ul id="progressList" hidden></ul>
         <ul id="progressPageList"></ul>
       </section>
 
@@ -166,7 +162,7 @@
           </div>
           <button class="ghost-button" data-view-target="home" type="button">Home</button>
         </header>
-        <p class="muted-copy">Crea allenamenti da zero, dalla sessione attiva o da una sessione salvata nello storico.</p>
+        <p class="muted-copy">Crea allenamenti da zero o da una sessione salvata nello storico.</p>
         <section class="templates-panel">
           <div class="template-editor">
             <label class="field">
@@ -178,9 +174,6 @@
             </div>
           </div>
           <div id="templatePageEmpty" class="empty-state">Nessun template salvato.</div>
-          <span id="templateSummary" hidden>0 salvati</span>
-          <div id="templateEmpty" class="empty-state" hidden></div>
-          <ul id="templateList" hidden></ul>
           <ul id="templatePageList"></ul>
         </section>
         <section class="history-panel">
@@ -195,8 +188,18 @@
             <ul id="templateHistoryList"></ul>
           </details>
         </section>
-        <span id="historySummary" hidden>0 sessioni</span>
-        <ul id="historyList" hidden></ul>
+      </section>
+
+      <section class="view history-view" id="historyView" hidden>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Archivio</p>
+            <h1>Storico</h1>
+          </div>
+          <button class="ghost-button" data-view-target="home" type="button">Home</button>
+        </header>
+        <div id="historyPageEmpty" class="empty-state">Nessun allenamento salvato.</div>
+        <ul id="historyPageList"></ul>
       </section>
 
       <section class="view profile-view" id="profileView" hidden>

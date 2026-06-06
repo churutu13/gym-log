@@ -13,24 +13,19 @@ const views = {
   workout: document.querySelector("#workoutView"),
   progress: document.querySelector("#progressView"),
   templates: document.querySelector("#templatesView"),
+  history: document.querySelector("#historyView"),
   profile: document.querySelector("#profileView"),
 };
 const form = document.querySelector("#exerciseForm");
 const list = document.querySelector("#exerciseList");
-const historyList = document.querySelector("#historyList");
-const historySummary = document.querySelector("#historySummary");
-const templateList = document.querySelector("#templateList");
 const templatePageList = document.querySelector("#templatePageList");
 const templateHistoryList = document.querySelector("#templateHistoryList");
-const templateEmpty = document.querySelector("#templateEmpty");
 const templatePageEmpty = document.querySelector("#templatePageEmpty");
-const templateSummary = document.querySelector("#templateSummary");
 const templateHistorySummary = document.querySelector("#templateHistorySummary");
-const progressList = document.querySelector("#progressList");
 const progressPageList = document.querySelector("#progressPageList");
-const progressEmpty = document.querySelector("#progressEmpty");
 const progressPageEmpty = document.querySelector("#progressPageEmpty");
-const progressSummary = document.querySelector("#progressSummary");
+const historyPageList = document.querySelector("#historyPageList");
+const historyPageEmpty = document.querySelector("#historyPageEmpty");
 const exerciseSuggestions = document.querySelector("#exerciseSuggestions");
 const emptyState = document.querySelector("#emptyState");
 const setRows = document.querySelector("#setRows");
@@ -102,10 +97,6 @@ setRows.addEventListener("click", (event) => {
   if (!button || setRows.children.length === 1) return;
   button.closest(".set-row").remove();
   syncSetLabels();
-});
-
-templateList.addEventListener("click", (event) => {
-  handleTemplateListClick(event);
 });
 
 templatePageList.addEventListener("click", (event) => {
@@ -204,14 +195,7 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
   state.exercises = [];
   state.sessionStartedAt = null;
   persist();
-  render();
-});
-
-document.querySelector("#clearHistory")?.addEventListener("click", () => {
-  if (!state.history.length || !confirm("Cancellare tutto lo storico?")) return;
-  state.history = [];
-  persist();
-  render();
+  showView("home");
 });
 
 list.addEventListener("click", (event) => {
@@ -226,12 +210,6 @@ list.addEventListener("click", (event) => {
   render();
 });
 
-historyList.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-history-template]");
-  if (!button) return;
-  saveTemplateFromHistory(button.dataset.historyTemplate);
-});
-
 function showView(viewName) {
   currentView = viewName;
   Object.entries(views).forEach(([name, view]) => {
@@ -240,6 +218,8 @@ function showView(viewName) {
   closeStartPanel();
   if (viewName === "home") {
     playHomeWelcome();
+  } else {
+    document.body.classList.remove("splash-active");
   }
   render();
 }
@@ -250,15 +230,18 @@ function playHomeWelcome() {
 
   if (welcomePlayed) {
     homeView.classList.add("home-ready");
+    document.body.classList.remove("splash-active");
     return;
   }
 
+  document.body.classList.add("splash-active");
   window.setTimeout(() => {
     homeView.classList.add("home-ready");
+    document.body.classList.remove("splash-active");
     welcomePlayed = true;
     sessionStorage.setItem("gym-log-welcome-played", "true");
     renderActiveWorkoutPill();
-  }, 2300);
+  }, 2600);
 }
 
 function openStartPanel() {
@@ -326,10 +309,8 @@ function render() {
   renderTemplates();
   renderStartTemplates();
   renderTemplateHistory();
-  renderProgress();
   renderProgressPage();
-  renderHistorySummary();
-  historyList.innerHTML = state.history.length ? state.history.map(renderHistory).join("") : "<li class=\"empty-state\">Nessun allenamento salvato.</li>";
+  renderHistoryPage();
 }
 
 function renderWorkoutMode() {
@@ -395,10 +376,11 @@ function renderExercise(exercise) {
   `;
 }
 
-function renderHistory(workout) {
+function renderHistory(workout, options = {}) {
   const exerciseCount = workout.exercises.length;
   const sets = workout.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
   const date = formatHistoryDate(workout.date);
+  const templateAction = options.templateAction ?? true;
 
   return `
     <li class="history-card">
@@ -417,9 +399,11 @@ function renderHistory(workout) {
         <ul class="saved-session-list">
           ${workout.exercises.map(renderSavedExercise).join("")}
         </ul>
-        <div class="template-actions single-action">
-          <button type="button" data-history-template="${workout.id}">Salva come template</button>
-        </div>
+        ${templateAction ? `
+          <div class="template-actions single-action">
+            <button type="button" data-history-template="${workout.id}">Salva come template</button>
+          </div>
+        ` : ""}
       </details>
     </li>
   `;
@@ -447,9 +431,6 @@ function renderSavedExercise(exercise) {
 }
 
 function renderTemplates() {
-  templateSummary.textContent = `${state.templates.length} salvati`;
-  templateEmpty.hidden = state.templates.length > 0;
-  templateList.innerHTML = state.templates.map(renderTemplate).join("");
   templatePageEmpty.hidden = state.templates.length > 0;
   templatePageList.innerHTML = state.templates.map(renderTemplate).join("");
 }
@@ -523,8 +504,9 @@ function renderTemplate(template) {
   `;
 }
 
-function renderHistorySummary() {
-  historySummary.textContent = `${state.history.length} sessioni`;
+function renderHistoryPage() {
+  historyPageEmpty.hidden = state.history.length > 0;
+  historyPageList.innerHTML = state.history.map((workout) => renderHistory(workout, { templateAction: false })).join("");
 }
 
 function renderExerciseSuggestions() {
@@ -545,16 +527,6 @@ function renderExerciseSuggestions() {
 
 function hideExerciseSuggestions() {
   exerciseSuggestions.hidden = true;
-}
-
-function renderProgress() {
-  const progressItems = getProgressItems();
-
-  progressSummary.textContent = progressItems.length
-    ? `${progressItems.length} esercizi monitorati`
-    : "Ultima vs precedente";
-  progressEmpty.hidden = progressItems.length > 0;
-  progressList.innerHTML = progressItems.map(renderProgressItem).join("");
 }
 
 function renderProgressPage() {
