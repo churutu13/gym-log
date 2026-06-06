@@ -1,6 +1,6 @@
 {
-  "name": "Gym Log",
-  "short_name": "Gym Log",
+  "name": "Kilo",
+  "short_name": "Kilo",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

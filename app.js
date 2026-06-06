@@ -36,6 +36,7 @@ let welcomePlayed = sessionStorage.getItem("gym-log-welcome-played") === "true";
 let templateAddMode = false;
 let templateExerciseEditMode = false;
 let replacingActiveWorkout = false;
+let saveCurrentTimer = null;
 
 if (state.exercises.length && !state.sessionStartedAt) {
   state.sessionStartedAt = new Date().toISOString();
@@ -414,6 +415,7 @@ function finishOnboarding() {
 
 function render() {
   const totalSets = state.exercises.reduce((sum, item) => sum + normalizeSets(item).length, 0);
+  const shouldRenderAll = !currentView;
 
   renderProfile();
   renderWorkoutMode();
@@ -425,11 +427,23 @@ function render() {
   emptyState.hidden = state.exercises.length > 0 || state.activeTemplateWorkout;
   list.innerHTML = state.exercises.map(renderExercise).join("");
   renderExerciseSuggestions();
-  renderTemplates();
-  renderStartTemplates();
-  renderTemplateHistory();
-  renderProgressPage();
-  renderHistoryPage();
+
+  if (shouldRenderAll || currentView === "templates") {
+    renderTemplates();
+    renderTemplateHistory();
+  }
+
+  if (shouldRenderAll || currentView === "progress") {
+    renderProgressPage();
+  }
+
+  if (shouldRenderAll || currentView === "history") {
+    renderHistoryPage();
+  }
+
+  if (!document.querySelector("#startSheet").hidden) {
+    renderStartTemplates();
+  }
 }
 
 function renderWorkoutMode() {
@@ -874,8 +888,12 @@ function updateExercise(exerciseId, updater, rerender = true) {
     if (exercise.id !== exerciseId) return exercise;
     return updater(exercise);
   });
-  saveCurrent();
-  if (rerender) render();
+  if (rerender) {
+    saveCurrent();
+    render();
+  } else {
+    scheduleSaveCurrent();
+  }
 }
 
 function resetDatabase() {
@@ -1207,6 +1225,10 @@ function persist() {
 }
 
 function saveCurrent() {
+  if (saveCurrentTimer) {
+    window.clearTimeout(saveCurrentTimer);
+    saveCurrentTimer = null;
+  }
   localStorage.setItem("gym-log-current", JSON.stringify(state.exercises));
   if (state.editingTemplate) {
     localStorage.setItem("gym-log-editing-template", JSON.stringify(state.editingTemplate));
@@ -1223,6 +1245,13 @@ function saveCurrent() {
   } else {
     localStorage.removeItem("gym-log-active-template-workout");
   }
+}
+
+function scheduleSaveCurrent() {
+  if (saveCurrentTimer) {
+    window.clearTimeout(saveCurrentTimer);
+  }
+  saveCurrentTimer = window.setTimeout(saveCurrent, 180);
 }
 
 function saveTemplates() {

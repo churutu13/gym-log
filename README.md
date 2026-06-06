@@ -1,4 +1,4 @@
-# Gym Log
+# Kilo
 
 Tracker palestra mobile-first per iPhone. Include onboarding profilo, home animata, sessioni attive con indicatore globale, progressi dedicati, "I tuoi allenamenti" per template modificabili, storico apribile, autocomplete sugli esercizi salvati e confronto progressivo tra sessioni per gli stessi esercizi.
 
