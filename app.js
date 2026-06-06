@@ -38,6 +38,11 @@ if (state.exercises.length && !state.sessionStartedAt) {
   saveCurrent();
 }
 
+if (!state.exercises.length && !state.editingTemplate && state.sessionStartedAt) {
+  state.sessionStartedAt = null;
+  saveCurrent();
+}
+
 document.querySelectorAll("[data-rest]").forEach((button) => {
   button.addEventListener("click", () => {
     selectedRest = Number(button.dataset.rest);
@@ -158,6 +163,11 @@ form.addEventListener("submit", (event) => {
   }
 
   const sets = getSetValues();
+  if (!sets) return;
+  if (!sets.length) {
+    alert("Compila almeno una serie.");
+    return;
+  }
 
   const exercise = {
     id: crypto.randomUUID(),
@@ -184,7 +194,12 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
     return;
   }
 
-  if (!state.exercises.length) return;
+  if (!state.exercises.length) {
+    state.sessionStartedAt = null;
+    saveCurrent();
+    showView("home");
+    return;
+  }
 
   state.history.unshift({
     id: crypto.randomUUID(),
@@ -685,11 +700,11 @@ function addSetRow(set = { reps: "", weight: "" }) {
     <strong></strong>
     <label class="field">
       <span>Kg</span>
-      <input name="weight" type="number" min="0" step="0.5" inputmode="decimal" value="${set.weight}" required />
+      <input name="weight" type="number" min="0" step="0.5" inputmode="decimal" value="${set.weight}" />
     </label>
     <label class="field">
       <span>Rip.</span>
-      <input name="reps" type="number" min="1" max="100" inputmode="numeric" value="${set.reps}" required />
+      <input name="reps" type="number" min="1" max="100" inputmode="numeric" value="${set.reps}" />
     </label>
     <button class="delete-row" type="button" data-remove-set aria-label="Elimina serie">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
@@ -720,10 +735,27 @@ function syncRestButtons() {
 }
 
 function getSetValues() {
-  return [...setRows.querySelectorAll(".set-row")].map((row) => ({
-    weight: Number(row.querySelector("[name='weight']").value),
-    reps: Number(row.querySelector("[name='reps']").value),
-  }));
+  const sets = [];
+
+  for (const row of setRows.querySelectorAll(".set-row")) {
+    const weight = row.querySelector("[name='weight']").value.trim();
+    const reps = row.querySelector("[name='reps']").value.trim();
+    const isEmpty = !weight && !reps;
+
+    if (isEmpty) continue;
+
+    if (!weight || !reps) {
+      alert("Completa kg e ripetizioni nelle serie iniziate, oppure lasciale vuote.");
+      return null;
+    }
+
+    sets.push({
+      weight: Number(weight),
+      reps: Number(reps),
+    });
+  }
+
+  return sets;
 }
 
 function getLastSetValue() {
@@ -957,7 +989,7 @@ function saveCurrent() {
   } else {
     localStorage.removeItem("gym-log-editing-template");
   }
-  if (state.sessionStartedAt) {
+  if (state.sessionStartedAt && state.exercises.length) {
     localStorage.setItem("gym-log-started-at", JSON.stringify(state.sessionStartedAt));
   } else {
     localStorage.removeItem("gym-log-started-at");
