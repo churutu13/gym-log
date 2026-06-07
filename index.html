@@ -106,11 +106,56 @@
             <span>I tuoi allenamenti</span>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7v10M17 7v10M4 10v4M20 10v4M4 12h20" /></svg>
           </button>
-          <button data-view-target="history" type="button">
-            <span>Storico</span>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+          <button data-view-target="schedule" type="button">
+            <span>Programma settimanale</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v4M16 2v4M4 10h16M6 4h12a2 2 0 0 1 2 2v14H4V6a2 2 0 0 1 2-2Z" /></svg>
           </button>
         </div>
+      </section>
+
+      <section class="view schedule-view" id="scheduleView" hidden>
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">Agenda</p>
+            <h1>Programma settimanale</h1>
+          </div>
+          <button class="ghost-button" data-view-target="home" type="button">Home</button>
+        </header>
+        <section class="schedule-panel">
+          <form class="schedule-form" id="scheduleForm">
+            <label class="field">
+              <span>Giorno</span>
+              <select id="scheduleDay">
+                <option value="1">Lunedi</option>
+                <option value="2">Martedi</option>
+                <option value="3">Mercoledi</option>
+                <option value="4">Giovedi</option>
+                <option value="5">Venerdi</option>
+                <option value="6">Sabato</option>
+                <option value="7">Domenica</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Ora</span>
+              <input id="scheduleTime" type="time" value="18:30" required />
+            </label>
+            <label class="field field-wide">
+              <span>Allenamento</span>
+              <select id="scheduleTemplate" required></select>
+            </label>
+            <label class="reminder-toggle">
+              <input id="scheduleReminder" type="checkbox" checked />
+              <span>Notifica 1 ora prima</span>
+            </label>
+            <button class="primary-action" type="submit">Aggiungi al programma</button>
+          </form>
+          <div class="schedule-list-heading">
+            <h2>Allenamenti programmati</h2>
+            <span id="scheduleSummary">0 allenamenti</span>
+          </div>
+          <div id="scheduleEmpty" class="empty-state">Nessun allenamento programmato.</div>
+          <ul id="scheduleList"></ul>
+        </section>
       </section>
 
       <section class="view workout-view" id="workoutView" hidden>
@@ -156,6 +201,7 @@
             <span>Esercizio</span>
             <input id="exerciseName" type="text" inputmode="text" autocomplete="off" required />
           </label>
+          <div id="exerciseSuggestions" class="suggestions" hidden></div>
           <div class="superset-panel" id="supersetPanel" hidden>
             <div class="superset-heading">
               <span>Superset</span>
@@ -165,7 +211,6 @@
               </label>
             </div>
           </div>
-          <div id="exerciseSuggestions" class="suggestions" hidden></div>
 
           <label class="field duration-field" id="durationField" hidden>
             <span id="durationLabel">Durata</span>
@@ -314,8 +359,6 @@
           </div>
           <button class="ghost-button" data-view-target="home" type="button">Home</button>
         </header>
-        <div id="historyPageEmpty" class="empty-state">Nessun allenamento salvato.</div>
-        <ul id="historyPageList"></ul>
       </section>
 
       <section class="view profile-view" id="profileView" hidden>
@@ -365,6 +408,19 @@
           </label>
           <button class="primary-action" type="submit">Salva dati</button>
         </form>
+        <section class="history-panel">
+          <details>
+            <summary>
+              <div>
+                <h2>Storico</h2>
+                <span>Sessioni salvate</span>
+              </div>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </summary>
+            <div id="historyPageEmpty" class="empty-state">Nessun allenamento salvato.</div>
+            <ul id="historyPageList"></ul>
+          </details>
+        </section>
         <section class="history-panel exercise-library-panel">
           <details>
             <summary>
@@ -422,10 +478,6 @@
       <button class="active-workout-pill" id="activeWorkoutPill" type="button" hidden>
         <span></span>
         Allenamento in corso
-      </button>
-      <button class="rest-timer-pill" id="restTimerPill" type="button" hidden>
-        <span>Recupero</span>
-        <strong id="restTimerValue">01:30</strong>
       </button>
     </main>
 

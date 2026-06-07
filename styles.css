@@ -220,18 +220,18 @@ body.splash-active .home-hero h1 {
 
 .info-button {
   position: fixed;
-  left: 14px;
-  bottom: calc(env(safe-area-inset-bottom) + 14px);
-  z-index: 5;
+  left: 8px;
+  bottom: max(env(safe-area-inset-bottom), 6px);
+  z-index: 15;
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: rgba(27, 31, 35, 0.88);
   color: var(--muted);
-  font-size: 0.9rem;
+  font-size: 0.78rem;
   font-weight: 900;
   cursor: pointer;
   opacity: 0;
@@ -350,47 +350,6 @@ body.splash-active .home-hero h1 {
   border-radius: 999px;
   background: var(--accent);
   box-shadow: 0 0 0 5px rgba(96, 211, 148, 0.13);
-}
-
-.rest-timer-pill {
-  position: fixed;
-  left: 8px;
-  bottom: calc(max(env(safe-area-inset-bottom), 6px) + 46px);
-  z-index: 16;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-height: 42px;
-  border: 1px solid rgba(240, 195, 91, 0.42);
-  border-radius: 999px;
-  background: #1b1f23;
-  color: var(--text);
-  padding: 0 13px;
-  font-weight: 850;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32);
-}
-
-.rest-timer-pill[hidden] {
-  display: none;
-}
-
-.rest-timer-pill span {
-  color: var(--muted);
-  font-size: 0.78rem;
-  text-transform: uppercase;
-}
-
-.rest-timer-pill strong {
-  color: var(--gold);
-  font-size: 0.98rem;
-}
-
-.rest-timer-pill.done {
-  border-color: rgba(96, 211, 148, 0.5);
-}
-
-.rest-timer-pill.done strong {
-  color: var(--accent);
 }
 
 @keyframes welcome-in {
@@ -557,6 +516,7 @@ svg {
 .workout-list,
 .progress-panel,
 .history-panel,
+.schedule-panel,
 .weight-progress-panel,
 .danger-panel {
   border: 1px solid var(--line);
@@ -584,6 +544,7 @@ svg {
 .workout-list,
 .progress-panel,
 .history-panel,
+.schedule-panel,
 .weight-progress-panel,
 .danger-panel {
   display: grid;
@@ -604,7 +565,10 @@ svg {
   text-transform: uppercase;
 }
 
-.field input {
+.field input,
+.field select {
+  appearance: none;
+  -webkit-appearance: none;
   width: 100%;
   min-height: 48px;
   border: 1px solid var(--line);
@@ -613,9 +577,22 @@ svg {
   color: var(--text);
   outline: 0;
   padding: 0 12px;
+  font: inherit;
 }
 
-.field input:focus {
+.field select {
+  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position: calc(100% - 17px) 20px, calc(100% - 11px) 20px;
+  background-repeat: no-repeat;
+  background-size: 6px 6px, 6px 6px;
+  font-size: 1rem;
+  font-weight: 800;
+  line-height: 1;
+  padding-right: 34px;
+}
+
+.field input:focus,
+.field select:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(96, 211, 148, 0.18);
 }
@@ -625,6 +602,8 @@ svg {
 }
 
 .suggestions {
+  position: relative;
+  z-index: 4;
   display: grid;
   gap: 6px;
   margin-top: 8px;
@@ -813,17 +792,20 @@ svg {
 .workout-list,
 .progress-panel,
 .weight-progress-panel,
+.schedule-panel,
 .history-panel {
   margin-top: 12px;
 }
 
 .templates-panel details,
+.schedule-panel details,
 .progress-panel details {
   display: grid;
   gap: 12px;
 }
 
 .templates-panel summary,
+.schedule-panel summary,
 .progress-panel summary {
   display: flex;
   align-items: start;
@@ -834,11 +816,13 @@ svg {
 }
 
 .templates-panel summary::-webkit-details-marker,
+.schedule-panel summary::-webkit-details-marker,
 .progress-panel summary::-webkit-details-marker {
   display: none;
 }
 
 .templates-panel summary span,
+.schedule-panel summary span,
 .progress-panel summary span {
   display: block;
   margin-top: 4px;
@@ -849,6 +833,7 @@ svg {
 }
 
 .templates-panel summary svg,
+.schedule-panel summary svg,
 .progress-panel summary svg {
   flex: 0 0 auto;
   margin-top: 1px;
@@ -857,6 +842,7 @@ svg {
 }
 
 .templates-panel details[open] summary svg,
+.schedule-panel details[open] summary svg,
 .progress-panel details[open] summary svg {
   transform: rotate(180deg);
 }
@@ -866,6 +852,125 @@ svg {
   gap: 12px;
   margin-top: 10px;
   margin-bottom: 8px;
+}
+
+.schedule-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(110px, 0.7fr);
+  gap: 10px;
+}
+
+.schedule-form .field-wide,
+.schedule-form .reminder-toggle,
+.schedule-form button {
+  grid-column: 1 / -1;
+}
+
+.reminder-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.reminder-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+#scheduleList {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.schedule-list-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.schedule-list-heading h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.schedule-list-heading span {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.schedule-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-radius: var(--radius);
+  background: #14181c;
+  padding: 10px;
+}
+
+.schedule-card strong,
+.schedule-card span,
+.schedule-card small {
+  display: block;
+}
+
+.schedule-card strong {
+  font-size: 0.9rem;
+}
+
+.schedule-card span {
+  margin-top: 4px;
+  color: var(--text);
+  font-weight: 800;
+}
+
+.schedule-card small {
+  margin-top: 3px;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 750;
+}
+
+.schedule-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.schedule-actions button {
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-strong);
+  color: var(--text);
+  padding: 0 10px;
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.schedule-actions button[aria-label] {
+  display: grid;
+  width: 34px;
+  padding: 0;
+  place-items: center;
+}
+
+.schedule-actions svg {
+  width: 16px;
+  height: 16px;
 }
 
 .template-editor button,
@@ -1471,6 +1576,26 @@ ul {
   padding: 6px 10px;
   font-size: 0.82rem;
   font-weight: 850;
+}
+
+.stats .rest-timer-bubble {
+  border: 1px solid rgba(240, 195, 91, 0.42);
+  border-radius: 999px;
+  background: rgba(240, 195, 91, 0.1);
+  color: var(--gold);
+  padding: 6px 9px;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.stats .rest-timer-bubble[hidden] {
+  display: none;
+}
+
+.stats .rest-timer-bubble.done {
+  border-color: rgba(96, 211, 148, 0.48);
+  background: rgba(96, 211, 148, 0.12);
+  color: var(--accent);
 }
 
 .history-card .stats {

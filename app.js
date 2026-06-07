@@ -2,18 +2,22 @@ const state = {
   exercises: load("gym-log-current", []),
   history: load("gym-log-history", []),
   templates: load("gym-log-templates", []),
+  schedule: load("gym-log-weekly-schedule", []),
   myExercises: load("gym-log-my-exercises", []),
   weightEntries: load("gym-log-weight-entries", []),
   profile: load("gym-log-profile", null),
   editingTemplate: load("gym-log-editing-template", null),
   sessionStartedAt: load("gym-log-started-at", null),
   activeTemplateWorkout: load("gym-log-active-template-workout", false),
+  activeTemplateId: load("gym-log-active-template-id", null),
+  pendingTemplateSetUpdates: load("gym-log-pending-template-set-updates", []),
 };
 
 const views = {
   intro: document.querySelector("#introView"),
   onboarding: document.querySelector("#onboardingView"),
   home: document.querySelector("#homeView"),
+  schedule: document.querySelector("#scheduleView"),
   workout: document.querySelector("#workoutView"),
   progress: document.querySelector("#progressView"),
   templates: document.querySelector("#templatesView"),
@@ -26,6 +30,11 @@ const templatePageList = document.querySelector("#templatePageList");
 const templateHistoryList = document.querySelector("#templateHistoryList");
 const templatePageEmpty = document.querySelector("#templatePageEmpty");
 const templateHistorySummary = document.querySelector("#templateHistorySummary");
+const scheduleForm = document.querySelector("#scheduleForm");
+const scheduleList = document.querySelector("#scheduleList");
+const scheduleEmpty = document.querySelector("#scheduleEmpty");
+const scheduleSummary = document.querySelector("#scheduleSummary");
+const scheduleTemplateSelect = document.querySelector("#scheduleTemplate");
 const progressPageList = document.querySelector("#progressPageList");
 const progressPageEmpty = document.querySelector("#progressPageEmpty");
 const weightProgressPanel = document.querySelector("#weightProgressPanel");
@@ -45,8 +54,6 @@ const supersetSetRows3 = document.querySelector("#supersetSetRows3");
 const myExercisesList = document.querySelector("#myExercisesList");
 const myExercisesEmpty = document.querySelector("#myExercisesEmpty");
 const myExercisesSummary = document.querySelector("#myExercisesSummary");
-const restTimerPill = document.querySelector("#restTimerPill");
-const restTimerValue = document.querySelector("#restTimerValue");
 let selectedRest = 90;
 let currentView = "";
 let currentExerciseType = "strength";
@@ -62,6 +69,8 @@ let introOpenedFromInfo = false;
 let restTimerEndsAt = null;
 let restTimerInterval = null;
 let restTimerNotified = false;
+let restTimerExerciseId = null;
+let scheduleReminderInterval = null;
 
 if (state.exercises.length && !state.sessionStartedAt) {
   state.sessionStartedAt = new Date().toISOString();
@@ -103,7 +112,6 @@ document.querySelector("#closeStartSheet").addEventListener("click", closeStartP
 document.querySelector("#finishOnboarding").addEventListener("click", finishOnboarding);
 document.querySelector("#closeIntro").addEventListener("click", closeIntro);
 document.querySelector("#activeWorkoutPill").addEventListener("click", () => showView("workout"));
-restTimerPill.addEventListener("click", stopRestTimer);
 document.querySelector("#toggleTemplateEdit").addEventListener("click", () => {
   templateExerciseEditMode = !templateExerciseEditMode;
   render();
@@ -207,6 +215,24 @@ templateHistoryList.addEventListener("click", (event) => {
   const button = event.target.closest("[data-history-template]");
   if (!button) return;
   saveTemplateFromHistory(button.dataset.historyTemplate);
+});
+
+scheduleForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  addScheduleItem();
+});
+
+scheduleList.addEventListener("click", (event) => {
+  const startButton = event.target.closest("[data-schedule-start]");
+  const deleteButton = event.target.closest("[data-schedule-delete]");
+
+  if (startButton) {
+    startTemplateWorkout(startButton.dataset.scheduleStart);
+  }
+
+  if (deleteButton) {
+    deleteScheduleItem(deleteButton.dataset.scheduleDelete);
+  }
 });
 
 document.querySelector("#startTemplateList").addEventListener("click", (event) => {
@@ -380,6 +406,8 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
   if (!state.exercises.length) {
     state.sessionStartedAt = null;
     state.activeTemplateWorkout = false;
+    state.activeTemplateId = null;
+    clearPendingTemplateSetUpdates();
     templateAddMode = false;
     templateExerciseEditMode = false;
     stopRestTimer();
@@ -387,6 +415,8 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
     showView("home");
     return;
   }
+
+  resolvePendingTemplateSetUpdates();
 
   state.history.unshift({
     id: crypto.randomUUID(),
@@ -397,6 +427,9 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
   state.exercises = [];
   state.sessionStartedAt = null;
   state.activeTemplateWorkout = false;
+  state.activeTemplateId = null;
+  state.pendingTemplateSetUpdates = [];
+  clearPendingTemplateSetUpdates();
   templateAddMode = false;
   templateExerciseEditMode = false;
   stopRestTimer();
@@ -417,6 +450,8 @@ list.addEventListener("click", (event) => {
     if (!state.exercises.length) {
       state.sessionStartedAt = null;
       state.activeTemplateWorkout = false;
+      state.activeTemplateId = null;
+      clearPendingTemplateSetUpdates();
     }
     saveCurrent();
     render();
@@ -449,7 +484,7 @@ list.addEventListener("click", (event) => {
   }
 
   if (timerButton) {
-    startRestTimer(Number(timerButton.dataset.restSeconds) || 90);
+    startRestTimer(Number(timerButton.dataset.restSeconds) || 90, timerButton.dataset.startRestTimer);
   }
 });
 
@@ -458,16 +493,19 @@ list.addEventListener("input", (event) => {
   if (!input) return;
 
   const setIndex = Number(input.dataset.setIndex);
+  const field = input.dataset.setField;
+  const parsedValue = field === "weight" ? parseDecimal(input.value) : Number(input.value) || 0;
   updateExercise(input.dataset.exerciseId, (exercise) => {
     const sets = normalizeSets(exercise).map((set, index) => {
       if (index !== setIndex) return set;
       return {
         ...set,
-        [input.dataset.setField]: input.dataset.setField === "weight" ? parseDecimal(input.value) : Number(input.value) || 0,
+        [field]: parsedValue,
       };
     });
     return { ...exercise, sets };
   }, false);
+  syncTemplateSetEdit(input.dataset.exerciseId, setIndex, field, parsedValue);
 });
 
 historyPageList.addEventListener("click", (event) => {
@@ -578,6 +616,7 @@ function startBlankWorkout() {
   if (state.exercises.length > 0 && !replacingActiveWorkout && !confirm("Sostituire la sessione corrente?")) return;
   state.editingTemplate = null;
   state.activeTemplateWorkout = false;
+  state.activeTemplateId = null;
   templateAddMode = false;
   templateExerciseEditMode = false;
   replacingActiveWorkout = false;
@@ -595,6 +634,8 @@ function startTemplateWorkout(templateId) {
   if (state.exercises.length > 0 && !replacingActiveWorkout && !confirm("Sostituire la sessione corrente?")) return;
   state.editingTemplate = null;
   state.activeTemplateWorkout = true;
+  state.activeTemplateId = template.id;
+  clearPendingTemplateSetUpdates();
   templateAddMode = false;
   templateExerciseEditMode = false;
   replacingActiveWorkout = false;
@@ -643,11 +684,15 @@ function render() {
     renderTemplateHistory();
   }
 
+  if (shouldRenderAll || currentView === "schedule") {
+    renderWeeklySchedule();
+  }
+
   if (shouldRenderAll || currentView === "progress") {
     renderProgressPage();
   }
 
-  if (shouldRenderAll || currentView === "history") {
+  if (shouldRenderAll || currentView === "history" || currentView === "profile") {
     renderHistoryPage();
   }
 
@@ -750,8 +795,9 @@ function renderDuration() {
   document.querySelector("#summaryDuration").textContent = formatDuration(getSessionDurationSeconds());
 }
 
-function startRestTimer(seconds) {
+function startRestTimer(seconds, exerciseId) {
   restTimerEndsAt = Date.now() + seconds * 1000;
+  restTimerExerciseId = exerciseId;
   restTimerNotified = false;
   requestNotificationPermission();
   renderRestTimer();
@@ -761,14 +807,17 @@ function startRestTimer(seconds) {
 
 function renderRestTimer() {
   if (!restTimerEndsAt) {
-    restTimerPill.hidden = true;
+    render();
     return;
   }
 
   const remaining = Math.max(0, Math.ceil((restTimerEndsAt - Date.now()) / 1000));
-  restTimerValue.textContent = formatDuration(remaining);
-  restTimerPill.classList.toggle("done", remaining === 0);
-  restTimerPill.hidden = false;
+  document.querySelectorAll("[data-rest-timer-value]").forEach((node) => {
+    const isActive = node.dataset.restTimerValue === restTimerExerciseId;
+    node.hidden = !isActive;
+    node.textContent = isActive ? formatDuration(remaining) : "";
+    node.classList.toggle("done", isActive && remaining === 0);
+  });
 
   if (remaining === 0 && restTimerInterval) {
     window.clearInterval(restTimerInterval);
@@ -787,9 +836,13 @@ function stopRestTimer() {
     restTimerInterval = null;
   }
   restTimerEndsAt = null;
+  restTimerExerciseId = null;
   restTimerNotified = false;
-  restTimerPill.hidden = true;
-  restTimerPill.classList.remove("done");
+  document.querySelectorAll("[data-rest-timer-value]").forEach((node) => {
+    node.hidden = true;
+    node.textContent = "";
+    node.classList.remove("done");
+  });
 }
 
 function requestNotificationPermission() {
@@ -806,6 +859,48 @@ function notifyRestDone() {
   } catch {}
 }
 
+function startScheduleReminderLoop() {
+  if (scheduleReminderInterval) window.clearInterval(scheduleReminderInterval);
+  checkScheduleReminders();
+  scheduleReminderInterval = window.setInterval(checkScheduleReminders, 60 * 1000);
+}
+
+function checkScheduleReminders() {
+  const now = new Date();
+
+  state.schedule.forEach((item) => {
+    if (!item.reminder) return;
+    const workoutDate = getScheduledWorkoutDate(item, now);
+    const reminderDate = new Date(workoutDate.getTime() - 60 * 60 * 1000);
+    if (now < reminderDate || now >= workoutDate) return;
+
+    const key = `gym-log-schedule-reminder-${item.id}-${workoutDate.toISOString().slice(0, 10)}`;
+    if (localStorage.getItem(key)) return;
+
+    localStorage.setItem(key, "true");
+    notifyScheduledWorkout(item, workoutDate);
+  });
+}
+
+function getScheduledWorkoutDate(item, now = new Date()) {
+  const currentDay = now.getDay() || 7;
+  const scheduledDate = new Date(now);
+  scheduledDate.setDate(now.getDate() + (Number(item.day) - currentDay));
+  const [hours, minutes] = String(item.time || "18:30").split(":").map(Number);
+  scheduledDate.setHours(hours || 0, minutes || 0, 0, 0);
+  return scheduledDate;
+}
+
+function notifyScheduledWorkout(item, workoutDate) {
+  const template = state.templates.find((entry) => entry.id === item.templateId);
+  if (!template || !("Notification" in window) || Notification.permission !== "granted") return;
+  try {
+    new Notification("Allenamento tra 1 ora", {
+      body: `${template.name} · ${workoutDate.toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" })}`,
+    });
+  } catch {}
+}
+
 function renderExercise(exercise) {
   const sets = normalizeSets(exercise);
   const type = exercise.type ?? "strength";
@@ -814,6 +909,9 @@ function renderExercise(exercise) {
   const canEditInline = Boolean(state.activeTemplateWorkout && !state.editingTemplate);
   const canDelete = !state.activeTemplateWorkout || state.editingTemplate || templateExerciseEditMode;
   const canStartTimer = Boolean(state.activeTemplateWorkout && !state.editingTemplate && type === "strength");
+  const restTimerRemaining = canStartTimer && restTimerExerciseId === exercise.id && restTimerEndsAt
+    ? Math.max(0, Math.ceil((restTimerEndsAt - Date.now()) / 1000))
+    : null;
 
   return `
     <li class="exercise-card">
@@ -833,7 +931,10 @@ function renderExercise(exercise) {
         ${type === "strength" ? `
           <span>${countExerciseSets(exercise)} serie</span>
           <span>${exercise.rest ?? 90}s pausa</span>
-          ${canStartTimer ? `<button class="timer-row-button" type="button" data-start-rest-timer="${exercise.id}" data-rest-seconds="${exercise.rest ?? 90}">Timer</button>` : ""}
+          ${canStartTimer ? `
+            <button class="timer-row-button" type="button" data-start-rest-timer="${exercise.id}" data-rest-seconds="${exercise.rest ?? 90}">Timer</button>
+            <span class="rest-timer-bubble${restTimerRemaining === 0 ? " done" : ""}" data-rest-timer-value="${exercise.id}" ${restTimerRemaining === null ? "hidden" : ""}>${restTimerRemaining === null ? "" : formatDuration(restTimerRemaining)}</span>
+          ` : ""}
         ` : `
           <span>${formatExerciseDuration(exercise)} durata</span>
           ${type === "stretching" ? `<span>${getStretchSets(exercise)} serie</span>` : ""}
@@ -1014,6 +1115,40 @@ function renderTemplates() {
   templatePageList.innerHTML = state.templates.map(renderTemplate).join("");
 }
 
+function renderWeeklySchedule() {
+  const sortedSchedule = getSortedSchedule();
+  scheduleSummary.textContent = `${sortedSchedule.length} ${sortedSchedule.length === 1 ? "allenamento" : "allenamenti"}`;
+  scheduleEmpty.hidden = sortedSchedule.length > 0;
+  scheduleTemplateSelect.innerHTML = state.templates.length
+    ? state.templates.map((template) => `<option value="${template.id}">${escapeHtml(template.name)}</option>`).join("")
+    : "<option value=\"\">Salva prima un template</option>";
+  scheduleTemplateSelect.disabled = state.templates.length === 0;
+  scheduleForm.querySelector("button[type='submit']").disabled = state.templates.length === 0;
+  scheduleList.innerHTML = sortedSchedule.map(renderScheduleItem).join("");
+}
+
+function renderScheduleItem(item) {
+  const template = state.templates.find((entry) => entry.id === item.templateId);
+  const templateName = template?.name ?? "Template non trovato";
+  const exerciseCount = template ? countSessionExercises(template.exercises) : 0;
+
+  return `
+    <li class="schedule-card">
+      <div>
+        <strong>${dayLabel(item.day)} · ${item.time}</strong>
+        <span>${escapeHtml(templateName)}</span>
+        <small>${template ? `${exerciseCount} esercizi` : "Allenamento eliminato"}${item.reminder ? " · notifica 1h prima" : ""}</small>
+      </div>
+      <div class="schedule-actions">
+        ${template ? `<button type="button" data-schedule-start="${template.id}">Avvia</button>` : ""}
+        <button type="button" data-schedule-delete="${item.id}" aria-label="Elimina programma">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
+        </button>
+      </div>
+    </li>
+  `;
+}
+
 function renderStartTemplates() {
   const list = document.querySelector("#startTemplateList");
   const empty = document.querySelector("#startTemplateEmpty");
@@ -1063,6 +1198,33 @@ function renderTemplate(template) {
       </details>
     </li>
   `;
+}
+
+function addScheduleItem() {
+  const templateId = scheduleTemplateSelect.value;
+  if (!templateId) {
+    alert("Salva prima un allenamento template.");
+    return;
+  }
+
+  const item = {
+    id: crypto.randomUUID(),
+    day: Number(value("#scheduleDay")),
+    time: value("#scheduleTime") || "18:30",
+    templateId,
+    reminder: document.querySelector("#scheduleReminder").checked,
+  };
+
+  state.schedule = [...state.schedule, item].sort(compareScheduleItems);
+  saveSchedule();
+  if (item.reminder) requestNotificationPermission();
+  renderWeeklySchedule();
+}
+
+function deleteScheduleItem(scheduleId) {
+  state.schedule = state.schedule.filter((item) => item.id !== scheduleId);
+  saveSchedule();
+  renderWeeklySchedule();
 }
 
 function renderHistoryPage() {
@@ -1296,6 +1458,8 @@ function editTemplate(templateId) {
     name: template.name,
   };
   state.activeTemplateWorkout = false;
+  state.activeTemplateId = null;
+  clearPendingTemplateSetUpdates();
   state.exercises = cloneSessionExercises(template.exercises);
   state.sessionStartedAt = null;
   saveCurrent();
@@ -1313,6 +1477,8 @@ function saveEditingTemplate() {
   saveTemplateFromExercises(state.editingTemplate.name, state.exercises);
   state.editingTemplate = null;
   state.activeTemplateWorkout = false;
+  state.activeTemplateId = null;
+  clearPendingTemplateSetUpdates();
   state.exercises = [];
   state.sessionStartedAt = null;
   saveCurrent();
@@ -1330,6 +1496,8 @@ function loadTemplate(templateId) {
 
   state.editingTemplate = null;
   state.activeTemplateWorkout = true;
+  state.activeTemplateId = template.id;
+  clearPendingTemplateSetUpdates();
   templateAddMode = false;
   templateExerciseEditMode = false;
   state.exercises = cloneSessionExercises(template.exercises);
@@ -1343,7 +1511,10 @@ function deleteTemplate(templateId) {
   if (!confirm("Cancellare questo template?")) return;
 
   state.templates = state.templates.filter((template) => template.id !== templateId);
+  state.schedule = state.schedule.filter((item) => item.templateId !== templateId);
   saveTemplates();
+  savePendingTemplateSetUpdates();
+  saveSchedule();
   render();
 }
 
@@ -1415,6 +1586,19 @@ function deleteMyExercise(exerciseId) {
   render();
 }
 
+function getSortedSchedule() {
+  return [...state.schedule].sort(compareScheduleItems);
+}
+
+function compareScheduleItems(a, b) {
+  if (Number(a.day) !== Number(b.day)) return Number(a.day) - Number(b.day);
+  return String(a.time).localeCompare(String(b.time));
+}
+
+function dayLabel(day) {
+  return ["", "Lunedi", "Martedi", "Mercoledi", "Giovedi", "Venerdi", "Sabato", "Domenica"][Number(day)] ?? "Giorno";
+}
+
 function addWeightEntry(weightValue, shouldSyncProfile = false, replaceToday = false) {
   const weight = parseDecimal(weightValue);
   if (!weight || weight <= 0) return;
@@ -1456,20 +1640,100 @@ function updateExercise(exerciseId, updater, rerender = true) {
   }
 }
 
+function syncTemplateSetEdit(exerciseId, setIndex, field, newValue) {
+  if (!state.activeTemplateWorkout || state.editingTemplate || !state.activeTemplateId) return;
+
+  const sessionExercise = state.exercises.find((exercise) => exercise.id === exerciseId);
+  if (!sessionExercise || sessionExercise.type !== "strength" || sessionExercise.isSuperset) return;
+
+  const update = {
+    templateId: state.activeTemplateId,
+    templateExerciseId: sessionExercise.templateExerciseId ?? null,
+    templateExerciseIndex: sessionExercise.templateExerciseIndex ?? null,
+    setIndex,
+    field,
+    value: newValue,
+  };
+  const updateKey = templateSetUpdateKey(update);
+  const withoutExisting = state.pendingTemplateSetUpdates.filter((item) => templateSetUpdateKey(item) !== updateKey);
+  state.pendingTemplateSetUpdates = [...withoutExisting, update];
+  savePendingTemplateSetUpdates();
+}
+
+function resolvePendingTemplateSetUpdates() {
+  const relevantUpdates = state.pendingTemplateSetUpdates.filter((item) => item.templateId === state.activeTemplateId);
+  if (!relevantUpdates.length) return;
+
+  const shouldUpdateTemplate = confirm("Pesi/reps modificati. Vuoi aggiornare anche il template salvato nei tuoi allenamenti?");
+  if (shouldUpdateTemplate) {
+    applyPendingTemplateSetUpdates(relevantUpdates);
+  }
+  clearPendingTemplateSetUpdates();
+}
+
+function applyPendingTemplateSetUpdates(updates) {
+  let didUpdate = false;
+  state.templates = state.templates.map((template) => {
+    const templateUpdates = updates.filter((item) => item.templateId === template.id);
+    if (!templateUpdates.length) return template;
+
+    const exercises = template.exercises.map((exercise, index) => {
+      const exerciseUpdates = templateUpdates.filter((item) => item.templateExerciseId
+        ? exercise.id === item.templateExerciseId
+        : index === item.templateExerciseIndex);
+      if (!exerciseUpdates.length) return exercise;
+
+      const sets = normalizeSets(exercise).map((set, currentIndex) => {
+        const setUpdates = exerciseUpdates.filter((item) => item.setIndex === currentIndex);
+        if (!setUpdates.length) return set;
+
+        didUpdate = true;
+        return setUpdates.reduce((updatedSet, item) => ({
+          ...updatedSet,
+          [item.field]: item.value,
+        }), set);
+      });
+
+      return { ...exercise, sets };
+    });
+
+    return { ...template, exercises, updatedAt: new Date().toISOString() };
+  });
+
+  if (didUpdate) saveTemplates();
+}
+
+function templateSetUpdateKey(update) {
+  return [
+    update.templateId,
+    update.templateExerciseId ?? `index-${update.templateExerciseIndex}`,
+    update.setIndex,
+    update.field,
+  ].join(":");
+}
+
+function clearPendingTemplateSetUpdates() {
+  state.pendingTemplateSetUpdates = [];
+  savePendingTemplateSetUpdates();
+}
+
 function resetDatabase() {
   if (!confirm("Eliminare profilo, storico, template e sessione attiva?")) return;
 
   state.exercises = [];
   state.history = [];
   state.templates = [];
+  state.schedule = [];
   state.myExercises = [];
   state.weightEntries = [];
   state.profile = null;
   state.editingTemplate = null;
   state.sessionStartedAt = null;
   state.activeTemplateWorkout = false;
+  state.activeTemplateId = null;
   templateAddMode = false;
   templateExerciseEditMode = false;
+  clearPendingTemplateSetUpdates();
   introPlayed = false;
   welcomePlayed = false;
 
@@ -1477,12 +1741,15 @@ function resetDatabase() {
     "gym-log-current",
     "gym-log-history",
     "gym-log-templates",
+    "gym-log-weekly-schedule",
     "gym-log-my-exercises",
     "gym-log-weight-entries",
     "gym-log-profile",
     "gym-log-editing-template",
     "gym-log-started-at",
     "gym-log-active-template-workout",
+    "gym-log-active-template-id",
+    "gym-log-pending-template-set-updates",
   ].forEach((key) => localStorage.removeItem(key));
   sessionStorage.removeItem("gym-log-welcome-played");
   localStorage.removeItem("gym-log-intro-played");
@@ -1591,6 +1858,7 @@ function normalizeSets(exercise) {
 
 function cloneTemplateExercises(exercises) {
   return exercises.map((exercise) => ({
+    id: exercise.templateExerciseId ?? exercise.id ?? crypto.randomUUID(),
     name: exercise.name,
     names: exercise.names ? [...exercise.names] : null,
     isSuperset: Boolean(exercise.isSuperset),
@@ -1608,8 +1876,10 @@ function cloneTemplateExercises(exercises) {
 }
 
 function cloneSessionExercises(exercises) {
-  return exercises.map((exercise) => ({
+  return exercises.map((exercise, index) => ({
     id: crypto.randomUUID(),
+    templateExerciseId: exercise.id ?? exercise.templateExerciseId ?? null,
+    templateExerciseIndex: index,
     name: exercise.name,
     names: exercise.names ? [...exercise.names] : null,
     isSuperset: Boolean(exercise.isSuperset),
@@ -1955,6 +2225,7 @@ function persist() {
   saveCurrent();
   localStorage.setItem("gym-log-history", JSON.stringify(state.history));
   saveTemplates();
+  saveSchedule();
   saveMyExercises();
   saveWeightEntries();
 }
@@ -1980,6 +2251,11 @@ function saveCurrent() {
   } else {
     localStorage.removeItem("gym-log-active-template-workout");
   }
+  if (state.activeTemplateId && state.activeTemplateWorkout && state.exercises.length) {
+    localStorage.setItem("gym-log-active-template-id", JSON.stringify(state.activeTemplateId));
+  } else {
+    localStorage.removeItem("gym-log-active-template-id");
+  }
 }
 
 function scheduleSaveCurrent() {
@@ -1991,6 +2267,14 @@ function scheduleSaveCurrent() {
 
 function saveTemplates() {
   localStorage.setItem("gym-log-templates", JSON.stringify(state.templates));
+}
+
+function savePendingTemplateSetUpdates() {
+  localStorage.setItem("gym-log-pending-template-set-updates", JSON.stringify(state.pendingTemplateSetUpdates));
+}
+
+function saveSchedule() {
+  localStorage.setItem("gym-log-weekly-schedule", JSON.stringify(state.schedule));
 }
 
 function saveMyExercises() {
@@ -2021,6 +2305,7 @@ resetSetRows(supersetSetRows3);
 render();
 showView(state.profile ? "home" : (introPlayed ? "onboarding" : "intro"));
 setInterval(renderDuration, 1000);
+startScheduleReminderLoop();
 
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
