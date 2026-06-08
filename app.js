@@ -10,6 +10,7 @@ const state = {
   sessionStartedAt: load("gym-log-started-at", null),
   activeTemplateWorkout: load("gym-log-active-template-workout", false),
   activeTemplateId: load("gym-log-active-template-id", null),
+  activeScheduleId: load("gym-log-active-schedule-id", null),
   pendingTemplateSetUpdates: load("gym-log-pending-template-set-updates", []),
 };
 
@@ -71,6 +72,9 @@ let restTimerInterval = null;
 let restTimerNotified = false;
 let restTimerExerciseId = null;
 let scheduleReminderInterval = null;
+let viewBackStack = [];
+let isNavigatingBack = false;
+let edgeSwipe = null;
 
 if (state.exercises.length && !state.sessionStartedAt) {
   state.sessionStartedAt = new Date().toISOString();
@@ -142,6 +146,11 @@ document.querySelectorAll("[data-view-target]").forEach((button) => {
     showView(button.dataset.viewTarget);
   });
 });
+
+document.addEventListener("pointerdown", startEdgeSwipe);
+document.addEventListener("pointermove", moveEdgeSwipe);
+document.addEventListener("pointerup", endEdgeSwipe);
+document.addEventListener("pointercancel", cancelEdgeSwipe);
 
 document.querySelector("#exerciseName").addEventListener("input", renderExerciseSuggestions);
 
@@ -227,7 +236,7 @@ scheduleList.addEventListener("click", (event) => {
   const deleteButton = event.target.closest("[data-schedule-delete]");
 
   if (startButton) {
-    startTemplateWorkout(startButton.dataset.scheduleStart);
+    startTemplateWorkout(startButton.dataset.scheduleStart, startButton.dataset.scheduleItem);
   }
 
   if (deleteButton) {
@@ -246,6 +255,8 @@ document.querySelector("#profileForm").addEventListener("submit", (event) => {
   const weight = value("#profileWeight");
   const newGoal = checkedValue("profileGoal") || "massa";
   const previousGoal = state.profile?.goal ?? "massa";
+  const previousWeight = parseDecimal(state.profile?.weight ?? "");
+  const nextWeight = parseDecimal(weight);
   if (state.profile && previousGoal !== newGoal) {
     const confirmed = confirm("Vuoi cambiare obiettivo? I progressi peso useranno la nuova direzione.");
     if (!confirmed) {
@@ -261,7 +272,9 @@ document.querySelector("#profileForm").addEventListener("submit", (event) => {
     goal: newGoal,
     gender: checkedValue("profileGender") || "neutral",
   };
-  addWeightEntry(weight, false, true);
+  if (nextWeight && nextWeight !== previousWeight) {
+    addWeightEntry(weight, false, true);
+  }
   saveProfile();
   render();
   showView("home");
@@ -407,6 +420,7 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
     state.sessionStartedAt = null;
     state.activeTemplateWorkout = false;
     state.activeTemplateId = null;
+    state.activeScheduleId = null;
     clearPendingTemplateSetUpdates();
     templateAddMode = false;
     templateExerciseEditMode = false;
@@ -417,17 +431,26 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
   }
 
   resolvePendingTemplateSetUpdates();
+  const finishedTemplate = getTemplateById(state.activeTemplateId);
+  const effort = promptWorkoutEffort();
+  const scheduleId = state.activeScheduleId;
 
   state.history.unshift({
     id: crypto.randomUUID(),
     date: new Date().toISOString(),
+    title: finishedTemplate?.name ?? "",
+    templateId: finishedTemplate?.id ?? null,
+    templateName: finishedTemplate?.name ?? "",
+    effort,
     durationSeconds: getSessionDurationSeconds(),
     exercises: [...state.exercises],
   });
+  completeScheduledWorkout(scheduleId);
   state.exercises = [];
   state.sessionStartedAt = null;
   state.activeTemplateWorkout = false;
   state.activeTemplateId = null;
+  state.activeScheduleId = null;
   state.pendingTemplateSetUpdates = [];
   clearPendingTemplateSetUpdates();
   templateAddMode = false;
@@ -451,6 +474,7 @@ list.addEventListener("click", (event) => {
       state.sessionStartedAt = null;
       state.activeTemplateWorkout = false;
       state.activeTemplateId = null;
+      state.activeScheduleId = null;
       clearPendingTemplateSetUpdates();
     }
     saveCurrent();
@@ -524,6 +548,11 @@ historyPageList.addEventListener("click", (event) => {
 
 function showView(viewName) {
   const previousView = currentView;
+  if (previousView && previousView !== viewName && !isNavigatingBack) {
+    viewBackStack.push(previousView);
+    viewBackStack = viewBackStack.slice(-12);
+  }
+  isNavigatingBack = false;
   currentView = viewName;
   Object.entries(views).forEach(([name, view]) => {
     view.hidden = name !== viewName;
@@ -542,6 +571,43 @@ function showView(viewName) {
   if (previousView && previousView !== viewName) {
     closeCollapsibleMenus();
   }
+}
+
+function goBackView() {
+  const previousView = viewBackStack.pop();
+  if (!previousView) return;
+  isNavigatingBack = true;
+  document.body.classList.add("view-swipe-back");
+  showView(previousView);
+  window.setTimeout(() => document.body.classList.remove("view-swipe-back"), 220);
+}
+
+function startEdgeSwipe(event) {
+  if (event.pointerType === "mouse" || event.clientX > 24 || currentView === "home" || currentView === "intro") return;
+  edgeSwipe = {
+    id: event.pointerId,
+    startX: event.clientX,
+    startY: event.clientY,
+    active: true,
+  };
+}
+
+function moveEdgeSwipe(event) {
+  if (!edgeSwipe || edgeSwipe.id !== event.pointerId) return;
+  const deltaX = event.clientX - edgeSwipe.startX;
+  const deltaY = Math.abs(event.clientY - edgeSwipe.startY);
+  if (deltaX > 76 && deltaX > deltaY * 1.4) {
+    edgeSwipe = null;
+    goBackView();
+  }
+}
+
+function endEdgeSwipe(event) {
+  if (edgeSwipe?.id === event.pointerId) edgeSwipe = null;
+}
+
+function cancelEdgeSwipe() {
+  edgeSwipe = null;
 }
 
 function playIntro() {
@@ -617,6 +683,7 @@ function startBlankWorkout() {
   state.editingTemplate = null;
   state.activeTemplateWorkout = false;
   state.activeTemplateId = null;
+  state.activeScheduleId = null;
   templateAddMode = false;
   templateExerciseEditMode = false;
   replacingActiveWorkout = false;
@@ -627,7 +694,7 @@ function startBlankWorkout() {
   showView("workout");
 }
 
-function startTemplateWorkout(templateId) {
+function startTemplateWorkout(templateId, scheduleId = null) {
   const template = state.templates.find((item) => item.id === templateId);
   if (!template) return;
   const isReplacing = replacingActiveWorkout || state.exercises.length > 0;
@@ -635,6 +702,7 @@ function startTemplateWorkout(templateId) {
   state.editingTemplate = null;
   state.activeTemplateWorkout = true;
   state.activeTemplateId = template.id;
+  state.activeScheduleId = scheduleId;
   clearPendingTemplateSetUpdates();
   templateAddMode = false;
   templateExerciseEditMode = false;
@@ -712,7 +780,7 @@ function renderWorkoutMode() {
     : "Allenamento";
   document.querySelector("#workoutTitle").textContent = isTemplate
     ? `Crea ${state.editingTemplate.name}`
-    : "Sessione attiva";
+    : (isTemplateWorkout ? (getTemplateById(state.activeTemplateId)?.name ?? "Sessione da template") : "Sessione attiva");
   document.querySelector("#workoutListTitle").textContent = isTemplate
     ? "Allenamento in modifica"
     : "Sessione";
@@ -814,9 +882,8 @@ function renderRestTimer() {
   const remaining = Math.max(0, Math.ceil((restTimerEndsAt - Date.now()) / 1000));
   document.querySelectorAll("[data-rest-timer-value]").forEach((node) => {
     const isActive = node.dataset.restTimerValue === restTimerExerciseId;
-    node.hidden = !isActive;
+    node.hidden = !isActive || remaining === 0;
     node.textContent = isActive ? formatDuration(remaining) : "";
-    node.classList.toggle("done", isActive && remaining === 0);
   });
 
   if (remaining === 0 && restTimerInterval) {
@@ -826,8 +893,22 @@ function renderRestTimer() {
 
   if (remaining === 0 && !restTimerNotified) {
     restTimerNotified = true;
+    markRestTimerCompleted(restTimerExerciseId);
     notifyRestDone();
   }
+}
+
+function markRestTimerCompleted(exerciseId) {
+  if (!exerciseId) return;
+  state.exercises = state.exercises.map((exercise) => {
+    if (exercise.id !== exerciseId) return exercise;
+    return {
+      ...exercise,
+      restCompletions: Number(exercise.restCompletions ?? 0) + 1,
+    };
+  });
+  saveCurrent();
+  render();
 }
 
 function stopRestTimer() {
@@ -883,11 +964,18 @@ function checkScheduleReminders() {
 }
 
 function getScheduledWorkoutDate(item, now = new Date()) {
+  if (!item.recurring && item.scheduledFor) {
+    return new Date(item.scheduledFor);
+  }
+
   const currentDay = now.getDay() || 7;
   const scheduledDate = new Date(now);
   scheduledDate.setDate(now.getDate() + (Number(item.day) - currentDay));
   const [hours, minutes] = String(item.time || "18:30").split(":").map(Number);
   scheduledDate.setHours(hours || 0, minutes || 0, 0, 0);
+  if (item.recurring && scheduledDate < now) {
+    scheduledDate.setDate(scheduledDate.getDate() + 7);
+  }
   return scheduledDate;
 }
 
@@ -908,7 +996,10 @@ function renderExercise(exercise) {
   const supersetExercises = getSupersetExercises(exercise);
   const canEditInline = Boolean(state.activeTemplateWorkout && !state.editingTemplate);
   const canDelete = !state.activeTemplateWorkout || state.editingTemplate || templateExerciseEditMode;
-  const canStartTimer = Boolean(state.activeTemplateWorkout && !state.editingTemplate && type === "strength");
+  const canStartTimer = Boolean(!state.editingTemplate && type === "strength");
+  const completedRestTimers = Number(exercise.restCompletions ?? 0);
+  const targetRestTimers = Math.max(1, countExerciseSets(exercise));
+  const isExerciseDone = canStartTimer && completedRestTimers >= targetRestTimers;
   const restTimerRemaining = canStartTimer && restTimerExerciseId === exercise.id && restTimerEndsAt
     ? Math.max(0, Math.ceil((restTimerEndsAt - Date.now()) / 1000))
     : null;
@@ -932,8 +1023,11 @@ function renderExercise(exercise) {
           <span>${countExerciseSets(exercise)} serie</span>
           <span>${exercise.rest ?? 90}s pausa</span>
           ${canStartTimer ? `
-            <button class="timer-row-button" type="button" data-start-rest-timer="${exercise.id}" data-rest-seconds="${exercise.rest ?? 90}">Timer</button>
-            <span class="rest-timer-bubble${restTimerRemaining === 0 ? " done" : ""}" data-rest-timer-value="${exercise.id}" ${restTimerRemaining === null ? "hidden" : ""}>${restTimerRemaining === null ? "" : formatDuration(restTimerRemaining)}</span>
+            <button class="timer-row-button" type="button" data-start-rest-timer="${exercise.id}" data-rest-seconds="${exercise.rest ?? 90}">Timer ${Math.min(completedRestTimers, targetRestTimers)}/${targetRestTimers}</button>
+            <span class="rest-timer-bubble" data-rest-timer-value="${exercise.id}" ${restTimerRemaining === null ? "hidden" : ""}>${restTimerRemaining === null ? "" : formatDuration(restTimerRemaining)}</span>
+            <span class="exercise-done-check" ${isExerciseDone ? "" : "hidden"} aria-label="Esercizio completato">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>
+            </span>
           ` : ""}
         ` : `
           <span>${formatExerciseDuration(exercise)} durata</span>
@@ -1017,6 +1111,7 @@ function renderHistory(workout, options = {}) {
   const deleteAction = options.deleteAction ?? false;
   const renameAction = options.renameAction ?? false;
   const templateLabel = options.templateLabel ?? "Salva come template";
+  const effort = Number(workout.effort ?? 0);
 
   return `
     <li class="history-card">
@@ -1029,10 +1124,12 @@ function renderHistory(workout, options = {}) {
               <span>${exerciseCount} esercizi</span>
               <span>${sets} serie</span>
               <span>${formatDuration(workout.durationSeconds ?? 0)}</span>
+              ${effort ? `<span>Fatica ${effort}/10</span>` : ""}
             </div>
           </div>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
         </summary>
+        ${workout.templateName ? `<p class="history-extra">Da template ${escapeHtml(workout.templateName)} · ${date}</p>` : ""}
         <ul class="saved-session-list">
           ${workout.exercises.map(renderSavedExercise).join("")}
         </ul>
@@ -1116,6 +1213,7 @@ function renderTemplates() {
 }
 
 function renderWeeklySchedule() {
+  pruneExpiredScheduleItems();
   const sortedSchedule = getSortedSchedule();
   scheduleSummary.textContent = `${sortedSchedule.length} ${sortedSchedule.length === 1 ? "allenamento" : "allenamenti"}`;
   scheduleEmpty.hidden = sortedSchedule.length > 0;
@@ -1131,16 +1229,18 @@ function renderScheduleItem(item) {
   const template = state.templates.find((entry) => entry.id === item.templateId);
   const templateName = template?.name ?? "Template non trovato";
   const exerciseCount = template ? countSessionExercises(template.exercises) : 0;
+  const workoutDate = getScheduledWorkoutDate(item);
+  const recurrenceCopy = item.recurring ? " · fisso settimanale" : "";
 
   return `
     <li class="schedule-card">
       <div>
         <strong>${dayLabel(item.day)} · ${item.time}</strong>
         <span>${escapeHtml(templateName)}</span>
-        <small>${template ? `${exerciseCount} esercizi` : "Allenamento eliminato"}${item.reminder ? " · notifica 1h prima" : ""}</small>
+        <small>${template ? `${exerciseCount} esercizi · ${formatFullDate(workoutDate)}` : "Allenamento eliminato"}${item.reminder ? " · notifica 1h prima" : ""}${recurrenceCopy}</small>
       </div>
       <div class="schedule-actions">
-        ${template ? `<button type="button" data-schedule-start="${template.id}">Avvia</button>` : ""}
+        ${template ? `<button type="button" data-schedule-start="${template.id}" data-schedule-item="${item.id}">Avvia</button>` : ""}
         <button type="button" data-schedule-delete="${item.id}" aria-label="Elimina programma">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
         </button>
@@ -1213,7 +1313,14 @@ function addScheduleItem() {
     time: value("#scheduleTime") || "18:30",
     templateId,
     reminder: document.querySelector("#scheduleReminder").checked,
+    recurring: document.querySelector("#scheduleRecurring").checked,
+    createdAt: new Date().toISOString(),
   };
+  const scheduledFor = getScheduledWorkoutDate(item);
+  if (!item.recurring && scheduledFor <= new Date()) {
+    scheduledFor.setDate(scheduledFor.getDate() + 7);
+  }
+  item.scheduledFor = item.recurring ? null : scheduledFor.toISOString();
 
   state.schedule = [...state.schedule, item].sort(compareScheduleItems);
   saveSchedule();
@@ -1225,6 +1332,42 @@ function deleteScheduleItem(scheduleId) {
   state.schedule = state.schedule.filter((item) => item.id !== scheduleId);
   saveSchedule();
   renderWeeklySchedule();
+}
+
+function completeScheduledWorkout(scheduleId) {
+  if (!scheduleId) return;
+  const item = state.schedule.find((entry) => entry.id === scheduleId);
+  if (!item || item.recurring) return;
+  state.schedule = state.schedule.filter((entry) => entry.id !== scheduleId);
+  saveSchedule();
+}
+
+function pruneExpiredScheduleItems() {
+  const now = new Date();
+  const activeScheduleIds = new Set(state.activeScheduleId ? [state.activeScheduleId] : []);
+  const nextSchedule = state.schedule.filter((item) => {
+    if (item.recurring || activeScheduleIds.has(item.id)) return true;
+    return getScheduledWorkoutDate(item, now) > now;
+  });
+  if (nextSchedule.length === state.schedule.length) return;
+  state.schedule = nextSchedule;
+  saveSchedule();
+}
+
+function getTemplateById(templateId) {
+  if (!templateId) return null;
+  return state.templates.find((template) => template.id === templateId) ?? null;
+}
+
+function promptWorkoutEffort() {
+  const answer = prompt("Quanto pesante e' stato l'allenamento? 1 facile, 10 durissimo", "");
+  if (answer === null || !answer.trim()) return null;
+  const effort = Math.round(parseDecimal(answer));
+  if (!effort || effort < 1 || effort > 10) {
+    alert("Fatica non salvata: inserisci un numero da 1 a 10.");
+    return null;
+  }
+  return effort;
 }
 
 function renderHistoryPage() {
@@ -1254,9 +1397,47 @@ function hideExerciseSuggestions() {
 
 function renderProgressPage() {
   const progressItems = getProgressItems();
+  const effortProgress = renderEffortProgress();
   renderWeightProgress();
-  progressPageEmpty.hidden = progressItems.length > 0;
-  progressPageList.innerHTML = progressItems.map(renderProgressItem).join("");
+  progressPageEmpty.hidden = progressItems.length > 0 || Boolean(effortProgress);
+  progressPageList.innerHTML = `${effortProgress}${progressItems.map(renderProgressItem).join("")}`;
+}
+
+function renderEffortProgress() {
+  const workouts = [...state.history]
+    .filter((workout) => Number(workout.effort ?? 0) > 0)
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  if (!workouts.length) return "";
+
+  const latest = workouts.at(-1);
+  const previous = workouts.at(-2);
+  const recent = workouts.slice(-5);
+  const average = recent.reduce((sum, workout) => sum + Number(workout.effort), 0) / recent.length;
+  const delta = previous ? Number(latest.effort) - Number(previous.effort) : 0;
+
+  return `
+    <li class="progress-card effort-card">
+      <header>
+        <div>
+          <h3>Fatica allenamenti</h3>
+          <span>Ultima sessione: ${formatDate(latest.date)}</span>
+        </div>
+        <strong class="${effortClass(Number(latest.effort))}">${latest.effort}/10</strong>
+      </header>
+      <div class="progress-grid two-up">
+        <div>
+          <span>Media recente</span>
+          <strong>${formatNumber(average)}/10</strong>
+          <small>ultimi ${recent.length} allenamenti</small>
+        </div>
+        <div>
+          <span>Dal precedente</span>
+          <strong class="${deltaClass(delta)}">${formatSigned(delta, 0)}</strong>
+          <small>${previous ? effortTrendCopy(delta) : "primo dato"}</small>
+        </div>
+      </div>
+    </li>
+  `;
 }
 
 function renderWeightProgress() {
@@ -1297,13 +1478,22 @@ function renderWeightProgress() {
         </div>
       </div>
       ${entries.length >= 2 ? renderWeightChart(entries) : ""}
-      <form class="weekly-weight-form">
-        <label class="field">
-          <span>${due ? "Promemoria settimanale" : "Nuova misurazione"}</span>
-          <input name="weeklyWeight" type="text" inputmode="decimal" placeholder="Aggiorna peso" required />
-        </label>
-        <button class="primary-action" type="submit">Aggiorna peso</button>
-      </form>
+      <details class="weight-entry-toggle">
+        <summary>
+          <div>
+            <h4>Nuova misurazione peso</h4>
+            <span>${due ? "Promemoria settimanale" : "Aggiorna quando vuoi"}</span>
+          </div>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </summary>
+        <form class="weekly-weight-form">
+          <label class="field">
+            <span>Peso</span>
+            <input name="weeklyWeight" type="text" inputmode="decimal" placeholder="Aggiorna peso" required />
+          </label>
+          <button class="primary-action" type="submit">Aggiorna peso</button>
+        </form>
+      </details>
     </article>
   `;
 }
@@ -1459,6 +1649,7 @@ function editTemplate(templateId) {
   };
   state.activeTemplateWorkout = false;
   state.activeTemplateId = null;
+  state.activeScheduleId = null;
   clearPendingTemplateSetUpdates();
   state.exercises = cloneSessionExercises(template.exercises);
   state.sessionStartedAt = null;
@@ -1478,6 +1669,7 @@ function saveEditingTemplate() {
   state.editingTemplate = null;
   state.activeTemplateWorkout = false;
   state.activeTemplateId = null;
+  state.activeScheduleId = null;
   clearPendingTemplateSetUpdates();
   state.exercises = [];
   state.sessionStartedAt = null;
@@ -1497,6 +1689,7 @@ function loadTemplate(templateId) {
   state.editingTemplate = null;
   state.activeTemplateWorkout = true;
   state.activeTemplateId = template.id;
+  state.activeScheduleId = null;
   clearPendingTemplateSetUpdates();
   templateAddMode = false;
   templateExerciseEditMode = false;
@@ -1591,8 +1784,7 @@ function getSortedSchedule() {
 }
 
 function compareScheduleItems(a, b) {
-  if (Number(a.day) !== Number(b.day)) return Number(a.day) - Number(b.day);
-  return String(a.time).localeCompare(String(b.time));
+  return getScheduledWorkoutDate(a).getTime() - getScheduledWorkoutDate(b).getTime();
 }
 
 function dayLabel(day) {
@@ -1731,6 +1923,7 @@ function resetDatabase() {
   state.sessionStartedAt = null;
   state.activeTemplateWorkout = false;
   state.activeTemplateId = null;
+  state.activeScheduleId = null;
   templateAddMode = false;
   templateExerciseEditMode = false;
   clearPendingTemplateSetUpdates();
@@ -1749,6 +1942,7 @@ function resetDatabase() {
     "gym-log-started-at",
     "gym-log-active-template-workout",
     "gym-log-active-template-id",
+    "gym-log-active-schedule-id",
     "gym-log-pending-template-set-updates",
   ].forEach((key) => localStorage.removeItem(key));
   sessionStorage.removeItem("gym-log-welcome-played");
@@ -2119,6 +2313,12 @@ function trendCopy(delta) {
   return "stabile";
 }
 
+function effortTrendCopy(delta) {
+  if (delta > 0) return "piu pesante";
+  if (delta < 0) return "piu leggero";
+  return "stessa fatica";
+}
+
 function exerciseTypeLabel(type) {
   if (type === "cardio") return "Cardio";
   if (type === "stretching") return "Stretching";
@@ -2165,6 +2365,16 @@ function formatDate(date) {
   return new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "short" }).format(new Date(date));
 }
 
+function formatFullDate(date) {
+  return new Intl.DateTimeFormat("it-IT", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(date));
+}
+
 function formatExerciseDuration(exercise) {
   if ((exercise.type ?? "strength") === "stretching") {
     return `${formatNumber(Number(exercise.durationSeconds ?? exercise.durationMinutes) || 0)} sec`;
@@ -2185,6 +2395,12 @@ function formatHistoryDate(date) {
 function deltaClass(number) {
   if (number > 0) return "delta-up";
   if (number < 0) return "delta-down";
+  return "delta-flat";
+}
+
+function effortClass(effort) {
+  if (effort >= 8) return "delta-down";
+  if (effort <= 4) return "delta-up";
   return "delta-flat";
 }
 
@@ -2255,6 +2471,11 @@ function saveCurrent() {
     localStorage.setItem("gym-log-active-template-id", JSON.stringify(state.activeTemplateId));
   } else {
     localStorage.removeItem("gym-log-active-template-id");
+  }
+  if (state.activeScheduleId && state.activeTemplateWorkout && state.exercises.length) {
+    localStorage.setItem("gym-log-active-schedule-id", JSON.stringify(state.activeScheduleId));
+  } else {
+    localStorage.removeItem("gym-log-active-schedule-id");
   }
 }
 
