@@ -97,8 +97,15 @@ h2 {
   display: none;
 }
 
-body.view-swipe-back .view:not([hidden]) {
-  animation: view-back-in 180ms cubic-bezier(.2, .8, .2, 1) both;
+.view.edge-swiping {
+  position: relative;
+  z-index: 3;
+  touch-action: pan-y;
+  will-change: transform, opacity;
+}
+
+.view.edge-swipe-reset {
+  transition: transform 170ms cubic-bezier(.2, .8, .2, 1), opacity 170ms cubic-bezier(.2, .8, .2, 1);
 }
 
 .intro-view {
@@ -325,6 +332,66 @@ body.splash-active .home-hero h1 {
   animation: sheet-in 180ms ease both;
 }
 
+.app-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: end center;
+  padding: 16px;
+  background: rgba(17, 19, 21, 0.78);
+}
+
+.app-dialog-card {
+  display: grid;
+  gap: 14px;
+  width: min(100%, 420px);
+  margin-bottom: calc(env(safe-area-inset-bottom) + 8px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #1b1f23;
+  padding: 16px;
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+  animation: sheet-in 160ms ease both;
+}
+
+.app-dialog-card h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.app-dialog-card p {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.app-dialog-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.app-dialog-actions button {
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel-strong);
+  color: var(--text);
+  font-weight: 850;
+}
+
+.app-dialog-actions button.primary {
+  border-color: rgba(96, 211, 148, 0.4);
+  background: var(--accent);
+  color: #07120b;
+}
+
+.app-dialog-actions button:only-child {
+  grid-column: 1 / -1;
+}
+
 .active-workout-pill {
   position: fixed;
   right: 8px;
@@ -393,18 +460,6 @@ body.splash-active .home-hero h1 {
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes view-back-in {
-  from {
-    opacity: 0.7;
-    transform: translateX(-18px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
   }
 }
 
@@ -870,10 +925,16 @@ svg {
   margin-bottom: 8px;
 }
 
+.schedule-create-panel {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 12px;
+}
+
 .schedule-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(110px, 0.7fr);
   gap: 10px;
+  margin-top: 12px;
 }
 
 .schedule-form .field-wide,
@@ -909,9 +970,7 @@ svg {
   align-items: end;
   justify-content: space-between;
   gap: 12px;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
+  margin-top: 4px;
 }
 
 .schedule-list-heading h2 {
@@ -975,6 +1034,12 @@ svg {
   padding: 0 10px;
   font-size: 0.78rem;
   font-weight: 850;
+}
+
+.schedule-actions button.active {
+  border-color: rgba(96, 211, 148, 0.48);
+  background: rgba(96, 211, 148, 0.14);
+  color: var(--accent);
 }
 
 .schedule-actions button[aria-label] {
@@ -1361,6 +1426,28 @@ ul {
   transform: rotate(180deg);
 }
 
+.effort-group-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.effort-group {
+  display: grid;
+  gap: 8px;
+  border-radius: var(--radius);
+  background: rgba(27, 31, 35, 0.76);
+  padding: 10px;
+}
+
+.effort-group h4 {
+  margin: 0;
+  color: var(--accent);
+  font-size: 0.82rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
 #templateHistoryList,
 #myExercisesList {
   margin-top: 12px;
@@ -1597,6 +1684,16 @@ ul {
 .delta-flat {
   background: var(--panel-strong);
   color: var(--muted) !important;
+}
+
+.delta-hard {
+  background: rgba(255, 99, 170, 0.16);
+  color: #ff8fc5 !important;
+}
+
+.delta-easy {
+  background: rgba(96, 211, 148, 0.14);
+  color: var(--accent) !important;
 }
 
 .delete-row {

@@ -107,9 +107,9 @@ document.querySelectorAll("[data-add-superset-set]").forEach((button) => {
 });
 
 document.querySelector("#createBlankTemplate").addEventListener("click", createBlankTemplate);
-document.querySelector("#newWorkoutButton").addEventListener("click", (event) => {
+document.querySelector("#newWorkoutButton").addEventListener("click", async (event) => {
   event.stopPropagation();
-  openStartPanel();
+  await openStartPanel();
 });
 document.querySelector("#startBlankWorkout").addEventListener("click", startBlankWorkout);
 document.querySelector("#closeStartSheet").addEventListener("click", closeStartPanel);
@@ -220,37 +220,42 @@ templatePageList.addEventListener("click", (event) => {
   handleTemplateListClick(event);
 });
 
-templateHistoryList.addEventListener("click", (event) => {
+templateHistoryList.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-history-template]");
   if (!button) return;
-  saveTemplateFromHistory(button.dataset.historyTemplate);
+  await saveTemplateFromHistory(button.dataset.historyTemplate);
 });
 
-scheduleForm.addEventListener("submit", (event) => {
+scheduleForm.addEventListener("submit", async (event) => {
   event.preventDefault();
-  addScheduleItem();
+  await addScheduleItem();
 });
 
-scheduleList.addEventListener("click", (event) => {
+scheduleList.addEventListener("click", async (event) => {
   const startButton = event.target.closest("[data-schedule-start]");
   const deleteButton = event.target.closest("[data-schedule-delete]");
+  const recurringButton = event.target.closest("[data-schedule-toggle-recurring]");
 
   if (startButton) {
-    startTemplateWorkout(startButton.dataset.scheduleStart, startButton.dataset.scheduleItem);
+    await startTemplateWorkout(startButton.dataset.scheduleStart, startButton.dataset.scheduleItem);
   }
 
   if (deleteButton) {
     deleteScheduleItem(deleteButton.dataset.scheduleDelete);
   }
+
+  if (recurringButton) {
+    toggleScheduleRecurring(recurringButton.dataset.scheduleToggleRecurring);
+  }
 });
 
-document.querySelector("#startTemplateList").addEventListener("click", (event) => {
+document.querySelector("#startTemplateList").addEventListener("click", async (event) => {
   const button = event.target.closest("[data-start-template]");
   if (!button) return;
-  startTemplateWorkout(button.dataset.startTemplate);
+  await startTemplateWorkout(button.dataset.startTemplate);
 });
 
-document.querySelector("#profileForm").addEventListener("submit", (event) => {
+document.querySelector("#profileForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const weight = value("#profileWeight");
   const newGoal = checkedValue("profileGoal") || "massa";
@@ -258,7 +263,7 @@ document.querySelector("#profileForm").addEventListener("submit", (event) => {
   const previousWeight = parseDecimal(state.profile?.weight ?? "");
   const nextWeight = parseDecimal(weight);
   if (state.profile && previousGoal !== newGoal) {
-    const confirmed = confirm("Vuoi cambiare obiettivo? I progressi peso useranno la nuova direzione.");
+    const confirmed = await appConfirm("Cambiare obiettivo?", "I progressi peso useranno la nuova direzione.");
     if (!confirmed) {
       renderProfile();
       return;
@@ -280,9 +285,9 @@ document.querySelector("#profileForm").addEventListener("submit", (event) => {
   showView("home");
 });
 
-document.querySelector("#myExerciseForm").addEventListener("submit", (event) => {
+document.querySelector("#myExerciseForm").addEventListener("submit", async (event) => {
   event.preventDefault();
-  addMyExercise(value("#myExerciseName"), checkedValue("myExerciseType") || "strength");
+  await addMyExercise(value("#myExerciseName"), checkedValue("myExerciseType") || "strength");
 });
 
 myExercisesList.addEventListener("click", (event) => {
@@ -306,30 +311,30 @@ weightProgressPanel.addEventListener("click", (event) => {
   readout.textContent = `${point.dataset.weight} kg · ${point.dataset.date}`;
 });
 
-function handleTemplateListClick(event) {
+async function handleTemplateListClick(event) {
   const loadButton = event.target.closest("[data-template-load]");
   const editButton = event.target.closest("[data-template-edit]");
   const deleteButton = event.target.closest("[data-template-delete]");
   const historyButton = event.target.closest("[data-history-template]");
 
   if (loadButton) {
-    loadTemplate(loadButton.dataset.templateLoad);
+    await loadTemplate(loadButton.dataset.templateLoad);
   }
 
   if (editButton) {
-    editTemplate(editButton.dataset.templateEdit);
+    await editTemplate(editButton.dataset.templateEdit);
   }
 
   if (deleteButton) {
-    deleteTemplate(deleteButton.dataset.templateDelete);
+    await deleteTemplate(deleteButton.dataset.templateDelete);
   }
 
   if (historyButton) {
-    saveTemplateFromHistory(historyButton.dataset.historyTemplate);
+    await saveTemplateFromHistory(historyButton.dataset.historyTemplate);
   }
 }
 
-form.addEventListener("submit", (event) => {
+form.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   if (!state.editingTemplate && !state.sessionStartedAt) {
@@ -345,29 +350,29 @@ form.addEventListener("submit", (event) => {
   if (sets === null) return;
 
   if (isSuperset && supersetExercises.length < 2) {
-    alert("Inserisci almeno due esercizi per il superset.");
+    await appAlert("Superset incompleto", "Inserisci almeno due esercizi per il superset.");
     return;
   }
 
   if (isSuperset && supersetExercises.some((item) => !item.sets)) return;
 
   if (isSuperset && supersetExercises.some((item) => !item.sets.length)) {
-    alert("Compila almeno una serie per ogni esercizio del superset.");
+    await appAlert("Serie mancanti", "Compila almeno una serie per ogni esercizio del superset.");
     return;
   }
 
   if (exerciseType === "strength" && !sets.length) {
-    alert("Compila almeno una serie.");
+    await appAlert("Serie mancanti", "Compila almeno una serie.");
     return;
   }
 
   if (exerciseType !== "strength" && (!durationValue || durationValue < 1)) {
-    alert("Inserisci la durata dell'esercizio.");
+    await appAlert("Durata mancante", "Inserisci la durata dell'esercizio.");
     return;
   }
 
   if (exerciseType === "stretching" && (!stretchingSets || stretchingSets < 1)) {
-    alert("Inserisci le serie dello stretching.");
+    await appAlert("Serie mancanti", "Inserisci le serie dello stretching.");
     return;
   }
 
@@ -410,9 +415,9 @@ form.addEventListener("submit", (event) => {
   render();
 });
 
-document.querySelector("#finishWorkout").addEventListener("click", () => {
+document.querySelector("#finishWorkout").addEventListener("click", async () => {
   if (state.editingTemplate) {
-    saveEditingTemplate();
+    await saveEditingTemplate();
     return;
   }
 
@@ -430,9 +435,10 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
     return;
   }
 
-  resolvePendingTemplateSetUpdates();
+  await resolvePendingTemplateSetUpdates();
   const finishedTemplate = getTemplateById(state.activeTemplateId);
-  const effort = promptWorkoutEffort();
+  const effortMeta = getWorkoutEffortMeta(state.exercises, finishedTemplate);
+  const effort = effortMeta.shouldAsk ? await promptWorkoutEffort(effortMeta) : null;
   const scheduleId = state.activeScheduleId;
 
   state.history.unshift({
@@ -442,6 +448,9 @@ document.querySelector("#finishWorkout").addEventListener("click", () => {
     templateId: finishedTemplate?.id ?? null,
     templateName: finishedTemplate?.name ?? "",
     effort,
+    effortType: effortMeta.type,
+    effortGroupKey: effortMeta.groupKey,
+    effortGroupName: effortMeta.groupName,
     durationSeconds: getSessionDurationSeconds(),
     exercises: [...state.exercises],
   });
@@ -532,17 +541,17 @@ list.addEventListener("input", (event) => {
   syncTemplateSetEdit(input.dataset.exerciseId, setIndex, field, parsedValue);
 });
 
-historyPageList.addEventListener("click", (event) => {
+historyPageList.addEventListener("click", async (event) => {
   const deleteButton = event.target.closest("[data-history-delete]");
   const renameButton = event.target.closest("[data-history-rename]");
 
   if (deleteButton) {
-    deleteHistoryWorkout(deleteButton.dataset.historyDelete);
+    await deleteHistoryWorkout(deleteButton.dataset.historyDelete);
     return;
   }
 
   if (renameButton) {
-    renameHistoryWorkout(renameButton.dataset.historyRename);
+    await renameHistoryWorkout(renameButton.dataset.historyRename);
   }
 });
 
@@ -577,37 +586,68 @@ function goBackView() {
   const previousView = viewBackStack.pop();
   if (!previousView) return;
   isNavigatingBack = true;
-  document.body.classList.add("view-swipe-back");
+  resetEdgeSwipeView(false);
   showView(previousView);
-  window.setTimeout(() => document.body.classList.remove("view-swipe-back"), 220);
 }
 
 function startEdgeSwipe(event) {
-  if (event.pointerType === "mouse" || event.clientX > 24 || currentView === "home" || currentView === "intro") return;
+  if (event.pointerType === "mouse" || event.clientX > 24 || currentView === "home" || currentView === "intro" || !viewBackStack.length) return;
   edgeSwipe = {
     id: event.pointerId,
     startX: event.clientX,
     startY: event.clientY,
-    active: true,
+    view: views[currentView],
+    tracking: false,
   };
+  edgeSwipe.view?.setPointerCapture?.(event.pointerId);
 }
 
 function moveEdgeSwipe(event) {
   if (!edgeSwipe || edgeSwipe.id !== event.pointerId) return;
   const deltaX = event.clientX - edgeSwipe.startX;
   const deltaY = Math.abs(event.clientY - edgeSwipe.startY);
-  if (deltaX > 76 && deltaX > deltaY * 1.4) {
-    edgeSwipe = null;
-    goBackView();
-  }
+  if (deltaX < 0 || deltaY > 46) return;
+  edgeSwipe.tracking = true;
+  const progress = Math.min(deltaX, 180);
+  edgeSwipe.view.style.transform = `translateX(${progress}px)`;
+  edgeSwipe.view.style.opacity = String(Math.max(0.72, 1 - progress / 420));
+  edgeSwipe.view.classList.add("edge-swiping");
 }
 
 function endEdgeSwipe(event) {
-  if (edgeSwipe?.id === event.pointerId) edgeSwipe = null;
+  if (edgeSwipe?.id !== event.pointerId) return;
+  const deltaX = event.clientX - edgeSwipe.startX;
+  const deltaY = Math.abs(event.clientY - edgeSwipe.startY);
+  const shouldGoBack = edgeSwipe.tracking && deltaX > 92 && deltaX > deltaY * 1.25;
+  if (shouldGoBack) {
+    goBackView();
+    edgeSwipe = null;
+    return;
+  }
+  resetEdgeSwipeView(true);
+  edgeSwipe = null;
 }
 
 function cancelEdgeSwipe() {
+  resetEdgeSwipeView(true);
   edgeSwipe = null;
+}
+
+function resetEdgeSwipeView(animate = false) {
+  if (!edgeSwipe?.view) return;
+  const view = edgeSwipe.view;
+  if (animate) {
+    view.classList.add("edge-swipe-reset");
+    view.style.transform = "";
+    view.style.opacity = "";
+    window.setTimeout(() => {
+      view.classList.remove("edge-swiping", "edge-swipe-reset");
+    }, 180);
+    return;
+  }
+  view.classList.remove("edge-swiping", "edge-swipe-reset");
+  view.style.transform = "";
+  view.style.opacity = "";
 }
 
 function playIntro() {
@@ -659,11 +699,11 @@ function playHomeWelcome() {
   }, 2600);
 }
 
-function openStartPanel() {
+async function openStartPanel() {
   replacingActiveWorkout = false;
 
   if (hasActiveWorkout()) {
-    const replace = confirm("Hai già un allenamento in corso. Vuoi iniziarne uno nuovo e sostituire quello attuale?");
+    const replace = await appConfirm("Allenamento in corso", "Vuoi iniziarne uno nuovo e sostituire quello attuale?");
     if (!replace) return;
     replacingActiveWorkout = true;
   }
@@ -677,9 +717,9 @@ function closeStartPanel() {
   replacingActiveWorkout = false;
 }
 
-function startBlankWorkout() {
+async function startBlankWorkout() {
   const isReplacing = replacingActiveWorkout || state.exercises.length > 0;
-  if (state.exercises.length > 0 && !replacingActiveWorkout && !confirm("Sostituire la sessione corrente?")) return;
+  if (state.exercises.length > 0 && !replacingActiveWorkout && !await appConfirm("Sostituire sessione?", "La sessione corrente verra' rimossa.")) return;
   state.editingTemplate = null;
   state.activeTemplateWorkout = false;
   state.activeTemplateId = null;
@@ -694,11 +734,11 @@ function startBlankWorkout() {
   showView("workout");
 }
 
-function startTemplateWorkout(templateId, scheduleId = null) {
+async function startTemplateWorkout(templateId, scheduleId = null) {
   const template = state.templates.find((item) => item.id === templateId);
   if (!template) return;
   const isReplacing = replacingActiveWorkout || state.exercises.length > 0;
-  if (state.exercises.length > 0 && !replacingActiveWorkout && !confirm("Sostituire la sessione corrente?")) return;
+  if (state.exercises.length > 0 && !replacingActiveWorkout && !await appConfirm("Sostituire sessione?", "La sessione corrente verra' rimossa.")) return;
   state.editingTemplate = null;
   state.activeTemplateWorkout = true;
   state.activeTemplateId = template.id;
@@ -1231,6 +1271,7 @@ function renderScheduleItem(item) {
   const exerciseCount = template ? countSessionExercises(template.exercises) : 0;
   const workoutDate = getScheduledWorkoutDate(item);
   const recurrenceCopy = item.recurring ? " · fisso settimanale" : "";
+  const recurringLabel = item.recurring ? "Fisso" : "Rendi fisso";
 
   return `
     <li class="schedule-card">
@@ -1241,6 +1282,7 @@ function renderScheduleItem(item) {
       </div>
       <div class="schedule-actions">
         ${template ? `<button type="button" data-schedule-start="${template.id}" data-schedule-item="${item.id}">Avvia</button>` : ""}
+        <button class="${item.recurring ? "active" : ""}" type="button" data-schedule-toggle-recurring="${item.id}">${recurringLabel}</button>
         <button type="button" data-schedule-delete="${item.id}" aria-label="Elimina programma">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" /></svg>
         </button>
@@ -1300,10 +1342,10 @@ function renderTemplate(template) {
   `;
 }
 
-function addScheduleItem() {
+async function addScheduleItem() {
   const templateId = scheduleTemplateSelect.value;
   if (!templateId) {
-    alert("Salva prima un allenamento template.");
+    await appAlert("Template mancante", "Salva prima un allenamento template.");
     return;
   }
 
@@ -1334,6 +1376,24 @@ function deleteScheduleItem(scheduleId) {
   renderWeeklySchedule();
 }
 
+function toggleScheduleRecurring(scheduleId) {
+  state.schedule = state.schedule.map((item) => {
+    if (item.id !== scheduleId) return item;
+    const recurring = !item.recurring;
+    const scheduledFor = getScheduledWorkoutDate({ ...item, recurring: false });
+    if (!recurring && scheduledFor <= new Date()) {
+      scheduledFor.setDate(scheduledFor.getDate() + 7);
+    }
+    return {
+      ...item,
+      recurring,
+      scheduledFor: recurring ? null : scheduledFor.toISOString(),
+    };
+  }).sort(compareScheduleItems);
+  saveSchedule();
+  renderWeeklySchedule();
+}
+
 function completeScheduledWorkout(scheduleId) {
   if (!scheduleId) return;
   const item = state.schedule.find((entry) => entry.id === scheduleId);
@@ -1359,12 +1419,76 @@ function getTemplateById(templateId) {
   return state.templates.find((template) => template.id === templateId) ?? null;
 }
 
-function promptWorkoutEffort() {
-  const answer = prompt("Quanto pesante e' stato l'allenamento? 1 facile, 10 durissimo", "");
+function getWorkoutEffortMeta(exercises, template = null) {
+  const type = getDominantWorkoutType(exercises);
+  if (type === "strength") {
+    return {
+      type,
+      groupKey: template ? `strength:${template.id}` : "strength:free",
+      groupName: template?.name ?? "Forza libera",
+      label: template ? `il template ${template.name}` : "l'allenamento di forza",
+      shouldAsk: Boolean(template),
+    };
+  }
+
+  return {
+    type,
+    groupKey: type,
+    groupName: exerciseTypeLabel(type),
+    label: `l'allenamento ${exerciseTypeLabel(type).toLocaleLowerCase("it-IT")}`,
+    shouldAsk: type === "cardio" || type === "stretching",
+  };
+}
+
+function getDominantWorkoutType(exercises) {
+  const counts = exercises.reduce((result, exercise) => {
+    const type = exercise.type ?? "strength";
+    result[type] = (result[type] ?? 0) + countExerciseSets(exercise) + (type === "cardio" ? 1 : 0);
+    return result;
+  }, {});
+
+  return ["strength", "cardio", "stretching"]
+    .sort((a, b) => (counts[b] ?? 0) - (counts[a] ?? 0))[0] ?? "strength";
+}
+
+function getEffortGroups(workouts) {
+  const groups = new Map();
+
+  workouts.forEach((workout) => {
+    const inferred = getWorkoutEffortMeta(workout.exercises ?? [], workout.templateId ? getTemplateById(workout.templateId) : null);
+    const type = workout.effortType ?? inferred.type;
+    const groupKey = workout.effortGroupKey ?? (type === "strength" && workout.templateName ? `strength:${exerciseKey(workout.templateName)}` : inferred.groupKey);
+    const groupName = workout.effortGroupName ?? (type === "strength" && workout.templateName ? workout.templateName : inferred.groupName);
+    if (type === "strength" && groupName === "Forza libera") return;
+
+    const existing = groups.get(groupKey) ?? {
+      key: groupKey,
+      type,
+      name: type === "strength" ? `Forza · ${groupName}` : groupName,
+      workouts: [],
+    };
+    existing.workouts.push(workout);
+    groups.set(groupKey, existing);
+  });
+
+  return [...groups.values()].sort((a, b) => {
+    const order = { strength: 0, cardio: 1, stretching: 2 };
+    if (order[a.type] !== order[b.type]) return order[a.type] - order[b.type];
+    return a.name.localeCompare(b.name, "it-IT");
+  });
+}
+
+async function promptWorkoutEffort(effortMeta) {
+  const answer = await appPrompt(
+    "Fatica allenamento",
+    `Quanto pesante e' stato ${effortMeta.label}? Usa 1 facile, 10 durissimo.`,
+    "",
+    { inputMode: "numeric", placeholder: "1-10" },
+  );
   if (answer === null || !answer.trim()) return null;
   const effort = Math.round(parseDecimal(answer));
   if (!effort || effort < 1 || effort > 10) {
-    alert("Fatica non salvata: inserisci un numero da 1 a 10.");
+    await appAlert("Fatica non salvata", "Inserisci un numero da 1 a 10.");
     return null;
   }
   return effort;
@@ -1409,21 +1533,38 @@ function renderEffortProgress() {
     .sort((a, b) => new Date(a.date) - new Date(b.date));
   if (!workouts.length) return "";
 
-  const latest = workouts.at(-1);
-  const previous = workouts.at(-2);
-  const recent = workouts.slice(-5);
+  const groups = getEffortGroups(workouts);
+
+  return `
+    <li class="progress-card effort-card">
+      <details>
+        <summary>
+          <header>
+            <div>
+              <h3>Fatica allenamenti</h3>
+              <span>${groups.length} ${groups.length === 1 ? "gruppo" : "gruppi"} monitorati</span>
+            </div>
+          </header>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </summary>
+        <div class="effort-group-list">
+          ${groups.map(renderEffortGroup).join("")}
+        </div>
+      </details>
+    </li>
+  `;
+}
+
+function renderEffortGroup(group) {
+  const latest = group.workouts.at(-1);
+  const previous = group.workouts.at(-2);
+  const recent = group.workouts.slice(-5);
   const average = recent.reduce((sum, workout) => sum + Number(workout.effort), 0) / recent.length;
   const delta = previous ? Number(latest.effort) - Number(previous.effort) : 0;
 
   return `
-    <li class="progress-card effort-card">
-      <header>
-        <div>
-          <h3>Fatica allenamenti</h3>
-          <span>Ultima sessione: ${formatDate(latest.date)}</span>
-        </div>
-        <strong class="${effortClass(Number(latest.effort))}">${latest.effort}/10</strong>
-      </header>
+    <section class="effort-group">
+      <h4>${escapeHtml(group.name)}</h4>
       <div class="progress-grid two-up">
         <div>
           <span>Media recente</span>
@@ -1432,11 +1573,11 @@ function renderEffortProgress() {
         </div>
         <div>
           <span>Dal precedente</span>
-          <strong class="${deltaClass(delta)}">${formatSigned(delta, 0)}</strong>
+          <strong class="${effortDeltaClass(delta)}">${previous ? formatSigned(delta, 0) : "0"}</strong>
           <small>${previous ? effortTrendCopy(delta) : "primo dato"}</small>
         </div>
       </div>
-    </li>
+    </section>
   `;
 }
 
@@ -1584,20 +1725,20 @@ function renderProgressComparison(title, comparison) {
   `;
 }
 
-function createBlankTemplate() {
+async function createBlankTemplate() {
   const name = value("#templateNamePage");
   if (!name) {
-    alert("Dai un nome all'allenamento.");
+    await appAlert("Nome mancante", "Dai un nome all'allenamento.");
     return;
   }
 
   const key = exerciseKey(name);
   if (state.templates.some((template) => exerciseKey(template.name) === key)) {
-    alert("Esiste già un allenamento con questo nome.");
+    await appAlert("Nome gia' usato", "Esiste gia' un allenamento con questo nome.");
     return;
   }
 
-  if (state.exercises.length && !confirm("Sostituire la sessione corrente?")) return;
+  if (state.exercises.length && !await appConfirm("Sostituire sessione?", "La sessione corrente verra' rimossa.")) return;
   state.editingTemplate = { id: crypto.randomUUID(), name };
   state.activeTemplateWorkout = false;
   state.exercises = [];
@@ -1625,11 +1766,11 @@ function saveTemplateFromExercises(name, exercises) {
   }
 }
 
-function saveTemplateFromHistory(workoutId) {
+async function saveTemplateFromHistory(workoutId) {
   const workout = state.history.find((item) => item.id === workoutId);
   if (!workout) return;
 
-  const name = prompt("Nome allenamento");
+  const name = await appPrompt("Nome allenamento", "Come vuoi salvare questo template?");
   if (!name) return;
 
   saveTemplateFromExercises(name, workout.exercises);
@@ -1638,10 +1779,10 @@ function saveTemplateFromHistory(workoutId) {
   render();
 }
 
-function editTemplate(templateId) {
+async function editTemplate(templateId) {
   const template = state.templates.find((item) => item.id === templateId);
   if (!template) return;
-  if (state.exercises.length && !state.editingTemplate && !confirm("Sostituire la sessione corrente?")) return;
+  if (state.exercises.length && !state.editingTemplate && !await appConfirm("Sostituire sessione?", "La sessione corrente verra' rimossa.")) return;
 
   state.editingTemplate = {
     id: template.id,
@@ -1658,10 +1799,10 @@ function editTemplate(templateId) {
   showView("workout");
 }
 
-function saveEditingTemplate() {
+async function saveEditingTemplate() {
   if (!state.editingTemplate) return;
   if (!state.exercises.length) {
-    alert("Aggiungi almeno un esercizio prima di salvare il template.");
+    await appAlert("Template vuoto", "Aggiungi almeno un esercizio prima di salvare il template.");
     return;
   }
 
@@ -1679,12 +1820,12 @@ function saveEditingTemplate() {
   showView("templates");
 }
 
-function loadTemplate(templateId) {
+async function loadTemplate(templateId) {
   const template = state.templates.find((item) => item.id === templateId);
   if (!template) return;
 
-  if (hasActiveWorkout() && !confirm("Hai già un allenamento in corso. Vuoi iniziarne uno nuovo con questo template?")) return;
-  if (!hasActiveWorkout() && state.exercises.length && !confirm("Sostituire la sessione corrente con questo template?")) return;
+  if (hasActiveWorkout() && !await appConfirm("Allenamento in corso", "Vuoi iniziarne uno nuovo con questo template?")) return;
+  if (!hasActiveWorkout() && state.exercises.length && !await appConfirm("Sostituire sessione?", "Vuoi sostituire la sessione corrente con questo template?")) return;
 
   state.editingTemplate = null;
   state.activeTemplateWorkout = true;
@@ -1700,8 +1841,8 @@ function loadTemplate(templateId) {
   showView("workout");
 }
 
-function deleteTemplate(templateId) {
-  if (!confirm("Cancellare questo template?")) return;
+async function deleteTemplate(templateId) {
+  if (!await appConfirm("Cancellare template?", "Il template verra' rimosso anche dal programma settimanale.")) return;
 
   state.templates = state.templates.filter((template) => template.id !== templateId);
   state.schedule = state.schedule.filter((item) => item.templateId !== templateId);
@@ -1711,19 +1852,19 @@ function deleteTemplate(templateId) {
   render();
 }
 
-function deleteHistoryWorkout(workoutId) {
-  if (!confirm("Eliminare questo allenamento dallo storico?")) return;
+async function deleteHistoryWorkout(workoutId) {
+  if (!await appConfirm("Eliminare allenamento?", "Questo allenamento verra' rimosso dallo storico.")) return;
   state.history = state.history.filter((workout) => workout.id !== workoutId);
   persist();
   render();
 }
 
-function renameHistoryWorkout(workoutId) {
+async function renameHistoryWorkout(workoutId) {
   const workout = state.history.find((item) => item.id === workoutId);
   if (!workout) return;
 
   const currentName = workout.title?.trim() || "";
-  const name = prompt("Nome allenamento", currentName);
+  const name = await appPrompt("Nome allenamento", "Scegli un nome per lo storico.", currentName);
   if (name === null) return;
 
   state.history = state.history.map((item) => {
@@ -1734,16 +1875,16 @@ function renameHistoryWorkout(workoutId) {
   render();
 }
 
-function addMyExercise(name, type = "strength") {
+async function addMyExercise(name, type = "strength") {
   const cleanName = name.trim();
   if (!cleanName) {
-    alert("Inserisci il nome dell'esercizio.");
+    await appAlert("Nome mancante", "Inserisci il nome dell'esercizio.");
     return;
   }
 
   const key = exerciseKey(cleanName);
   if (state.myExercises.some((exercise) => exerciseKey(exercise.name) === key && (exercise.type ?? "strength") === type)) {
-    alert("Questo esercizio e' gia salvato.");
+    await appAlert("Esercizio gia' salvato", "Questo esercizio e' gia' nella tua libreria.");
     return;
   }
 
@@ -1852,11 +1993,11 @@ function syncTemplateSetEdit(exerciseId, setIndex, field, newValue) {
   savePendingTemplateSetUpdates();
 }
 
-function resolvePendingTemplateSetUpdates() {
+async function resolvePendingTemplateSetUpdates() {
   const relevantUpdates = state.pendingTemplateSetUpdates.filter((item) => item.templateId === state.activeTemplateId);
   if (!relevantUpdates.length) return;
 
-  const shouldUpdateTemplate = confirm("Pesi/reps modificati. Vuoi aggiornare anche il template salvato nei tuoi allenamenti?");
+  const shouldUpdateTemplate = await appConfirm("Aggiornare template?", "Pesi o ripetizioni sono cambiati. Vuoi aggiornare anche il template salvato?");
   if (shouldUpdateTemplate) {
     applyPendingTemplateSetUpdates(relevantUpdates);
   }
@@ -1909,8 +2050,8 @@ function clearPendingTemplateSetUpdates() {
   savePendingTemplateSetUpdates();
 }
 
-function resetDatabase() {
-  if (!confirm("Eliminare profilo, storico, template e sessione attiva?")) return;
+async function resetDatabase() {
+  if (!await appConfirm("Eliminare tutto?", "Profilo, storico, template e sessione attiva verranno rimossi.")) return;
 
   state.exercises = [];
   state.history = [];
@@ -1954,6 +2095,97 @@ function resetDatabase() {
   document.querySelector("[name='genderSetup'][value='male']").checked = true;
   document.querySelector("[name='goalSetup'][value='massa']").checked = true;
   showView("intro");
+}
+
+function appAlert(title, message) {
+  return appDialog({ title, message, actions: [{ label: "Ok", value: true, primary: true }] });
+}
+
+function appConfirm(title, message) {
+  return appDialog({
+    title,
+    message,
+    actions: [
+      { label: "Annulla", value: false },
+      { label: "Conferma", value: true, primary: true },
+    ],
+  });
+}
+
+function appPrompt(title, message, defaultValue = "", options = {}) {
+  return appDialog({
+    title,
+    message,
+    defaultValue,
+    inputMode: options.inputMode ?? "text",
+    placeholder: options.placeholder ?? "",
+    prompt: true,
+    actions: [
+      { label: "Annulla", value: null },
+      { label: "Salva", value: "submit", primary: true },
+    ],
+  });
+}
+
+function appDialog({ title, message, actions, prompt = false, defaultValue = "", inputMode = "text", placeholder = "" }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("section");
+    overlay.className = "app-dialog";
+    overlay.setAttribute("role", "dialog");
+    overlay.setAttribute("aria-modal", "true");
+    overlay.innerHTML = `
+      <div class="app-dialog-card">
+        <div>
+          <h2>${escapeHtml(title)}</h2>
+          ${message ? `<p>${escapeHtml(message)}</p>` : ""}
+        </div>
+        ${prompt ? `
+          <label class="field">
+            <span>Valore</span>
+            <input class="app-dialog-input" type="text" inputmode="${escapeAttribute(inputMode)}" value="${escapeAttribute(defaultValue)}" placeholder="${escapeAttribute(placeholder)}" />
+          </label>
+        ` : ""}
+        <div class="app-dialog-actions">
+          ${actions.map((action, index) => `
+            <button class="${action.primary ? "primary" : ""}" type="button" data-dialog-action="${index}">${escapeHtml(action.label)}</button>
+          `).join("")}
+        </div>
+      </div>
+    `;
+
+    const finish = (value) => {
+      overlay.remove();
+      resolve(value);
+    };
+
+    overlay.addEventListener("click", (event) => {
+      if (event.target !== overlay) return;
+      finish(actions[0]?.value ?? null);
+    });
+
+    overlay.querySelectorAll("[data-dialog-action]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const action = actions[Number(button.dataset.dialogAction)];
+        if (action.value === "submit") {
+          finish(overlay.querySelector(".app-dialog-input")?.value ?? "");
+          return;
+        }
+        finish(action.value);
+      });
+    });
+
+    overlay.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") finish(actions[0]?.value ?? null);
+      if (event.key === "Enter" && prompt) finish(overlay.querySelector(".app-dialog-input")?.value ?? "");
+    });
+
+    document.body.append(overlay);
+    window.setTimeout(() => {
+      const focusTarget = overlay.querySelector(".app-dialog-input") ?? overlay.querySelector(".primary") ?? overlay.querySelector("button");
+      focusTarget?.focus();
+      if (focusTarget?.select) focusTarget.select();
+    });
+  });
 }
 
 function value(selector) {
@@ -2020,7 +2252,7 @@ function getSetValues(container = setRows) {
     if (isEmpty) continue;
 
     if (!weight || !reps) {
-      alert("Completa kg e ripetizioni nelle serie iniziate, oppure lasciale vuote.");
+      appAlert("Serie incompleta", "Completa kg e ripetizioni nelle serie iniziate, oppure lasciale vuote.");
       return null;
     }
 
@@ -2398,9 +2630,9 @@ function deltaClass(number) {
   return "delta-flat";
 }
 
-function effortClass(effort) {
-  if (effort >= 8) return "delta-down";
-  if (effort <= 4) return "delta-up";
+function effortDeltaClass(delta) {
+  if (delta > 0) return "delta-hard";
+  if (delta < 0) return "delta-easy";
   return "delta-flat";
 }
 

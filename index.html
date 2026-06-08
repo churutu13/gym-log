@@ -122,37 +122,46 @@
           <button class="ghost-button" data-view-target="home" type="button">Home</button>
         </header>
         <section class="schedule-panel">
-          <form class="schedule-form" id="scheduleForm">
-            <label class="field">
-              <span>Giorno</span>
-              <select id="scheduleDay">
-                <option value="1">Lunedi</option>
-                <option value="2">Martedi</option>
-                <option value="3">Mercoledi</option>
-                <option value="4">Giovedi</option>
-                <option value="5">Venerdi</option>
-                <option value="6">Sabato</option>
-                <option value="7">Domenica</option>
-              </select>
-            </label>
-            <label class="field">
-              <span>Ora</span>
-              <input id="scheduleTime" type="time" value="18:30" required />
-            </label>
-            <label class="field field-wide">
-              <span>Allenamento</span>
-              <select id="scheduleTemplate" required></select>
-            </label>
-            <label class="reminder-toggle">
-              <input id="scheduleReminder" type="checkbox" checked />
-              <span>Notifica 1 ora prima</span>
-            </label>
-            <label class="reminder-toggle">
-              <input id="scheduleRecurring" type="checkbox" />
-              <span>Ripeti ogni settimana</span>
-            </label>
-            <button class="primary-action" type="submit">Aggiungi al programma</button>
-          </form>
+          <details class="schedule-create-panel">
+            <summary>
+              <div>
+                <h2>Aggiungi allenamento</h2>
+                <span>Nuovo programma</span>
+              </div>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+            </summary>
+            <form class="schedule-form" id="scheduleForm">
+              <label class="field">
+                <span>Giorno</span>
+                <select id="scheduleDay">
+                  <option value="1">Lunedi</option>
+                  <option value="2">Martedi</option>
+                  <option value="3">Mercoledi</option>
+                  <option value="4">Giovedi</option>
+                  <option value="5">Venerdi</option>
+                  <option value="6">Sabato</option>
+                  <option value="7">Domenica</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Ora</span>
+                <input id="scheduleTime" type="time" value="18:30" required />
+              </label>
+              <label class="field field-wide">
+                <span>Allenamento</span>
+                <select id="scheduleTemplate" required></select>
+              </label>
+              <label class="reminder-toggle">
+                <input id="scheduleReminder" type="checkbox" checked />
+                <span>Notifica 1 ora prima</span>
+              </label>
+              <label class="reminder-toggle">
+                <input id="scheduleRecurring" type="checkbox" />
+                <span>Ripeti ogni settimana</span>
+              </label>
+              <button class="primary-action" type="submit">Aggiungi al programma</button>
+            </form>
+          </details>
           <div class="schedule-list-heading">
             <h2>Allenamenti programmati</h2>
             <span id="scheduleSummary">0 allenamenti</span>
