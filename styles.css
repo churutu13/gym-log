@@ -1220,6 +1220,50 @@ ul {
   font-size: 1rem;
 }
 
+.exercise-reorder-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.exercise-reorder-controls > div {
+  display: flex;
+  gap: 6px;
+}
+
+.exercise-reorder-controls button {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel-strong);
+  color: var(--text);
+  padding: 0 10px;
+  font-size: 0.78rem;
+  font-weight: 850;
+  touch-action: none;
+}
+
+.exercise-reorder-controls .drag-handle {
+  color: var(--accent);
+}
+
+.exercise-card.is-moving {
+  border-color: rgba(96, 211, 148, 0.6);
+  opacity: 0.86;
+  transform: scale(0.98);
+}
+
+#exerciseList.is-reordering .exercise-card {
+  transition: transform 120ms ease, opacity 120ms ease, border-color 120ms ease;
+}
+
 .history-panel details {
   display: grid;
   gap: 10px;

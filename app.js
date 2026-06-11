@@ -75,6 +75,7 @@ let scheduleReminderInterval = null;
 let viewBackStack = [];
 let isNavigatingBack = false;
 let edgeSwipe = null;
+let movingExerciseId = null;
 
 if (state.exercises.length && !state.sessionStartedAt) {
   state.sessionStartedAt = new Date().toISOString();
@@ -199,6 +200,11 @@ exerciseSuggestions.addEventListener("click", (event) => {
     activeSuggestionInput.blur();
   }
 });
+
+list.addEventListener("pointerdown", startExerciseMove);
+list.addEventListener("pointermove", moveExercise);
+list.addEventListener("pointerup", endExerciseMove);
+list.addEventListener("pointercancel", endExerciseMove);
 
 setRows.addEventListener("click", (event) => {
   handleSetRowsClick(event);
@@ -437,8 +443,9 @@ document.querySelector("#finishWorkout").addEventListener("click", async () => {
 
   await resolvePendingTemplateSetUpdates();
   const finishedTemplate = getTemplateById(state.activeTemplateId);
-  const effortMeta = getWorkoutEffortMeta(state.exercises, finishedTemplate);
-  const effort = effortMeta.shouldAsk ? await promptWorkoutEffort(effortMeta) : null;
+  const effortEntries = await promptWorkoutEfforts(state.exercises, finishedTemplate);
+  if (effortEntries === null) return;
+  const primaryEffort = effortEntries[0] ?? null;
   const scheduleId = state.activeScheduleId;
 
   state.history.unshift({
@@ -447,10 +454,11 @@ document.querySelector("#finishWorkout").addEventListener("click", async () => {
     title: finishedTemplate?.name ?? "",
     templateId: finishedTemplate?.id ?? null,
     templateName: finishedTemplate?.name ?? "",
-    effort,
-    effortType: effortMeta.type,
-    effortGroupKey: effortMeta.groupKey,
-    effortGroupName: effortMeta.groupName,
+    effort: primaryEffort?.effort ?? null,
+    effortType: primaryEffort?.type ?? null,
+    effortGroupKey: primaryEffort?.groupKey ?? null,
+    effortGroupName: primaryEffort?.groupName ?? null,
+    effortEntries,
     durationSeconds: getSessionDurationSeconds(),
     exercises: [...state.exercises],
   });
@@ -475,6 +483,7 @@ list.addEventListener("click", (event) => {
   const removeSetButton = event.target.closest("[data-remove-inline-set]");
   const restButton = event.target.closest("[data-rest-update]");
   const timerButton = event.target.closest("[data-start-rest-timer]");
+  const moveButton = event.target.closest("[data-move-exercise]");
 
   if (button) {
     if (state.activeTemplateWorkout && !templateExerciseEditMode) return;
@@ -518,6 +527,11 @@ list.addEventListener("click", (event) => {
 
   if (timerButton) {
     startRestTimer(Number(timerButton.dataset.restSeconds) || 90, timerButton.dataset.startRestTimer);
+    return;
+  }
+
+  if (moveButton) {
+    moveExerciseByDirection(moveButton.dataset.moveExercise, Number(moveButton.dataset.moveDirection));
   }
 });
 
@@ -706,6 +720,10 @@ async function openStartPanel() {
     const replace = await appConfirm("Allenamento in corso", "Vuoi iniziarne uno nuovo e sostituire quello attuale?");
     if (!replace) return;
     replacingActiveWorkout = true;
+    if (!state.templates.length) {
+      await startBlankWorkout();
+      return;
+    }
   }
 
   document.querySelector("#startSheet").hidden = false;
@@ -726,6 +744,7 @@ async function startBlankWorkout() {
   state.activeScheduleId = null;
   templateAddMode = false;
   templateExerciseEditMode = false;
+  currentExerciseType = "strength";
   replacingActiveWorkout = false;
   state.exercises = [];
   state.sessionStartedAt = isReplacing ? new Date().toISOString() : state.sessionStartedAt ?? new Date().toISOString();
@@ -746,6 +765,7 @@ async function startTemplateWorkout(templateId, scheduleId = null) {
   clearPendingTemplateSetUpdates();
   templateAddMode = false;
   templateExerciseEditMode = false;
+  currentExerciseType = "strength";
   replacingActiveWorkout = false;
   state.exercises = cloneSessionExercises(template.exercises);
   state.sessionStartedAt = isReplacing ? new Date().toISOString() : state.sessionStartedAt ?? new Date().toISOString();
@@ -1034,18 +1054,19 @@ function renderExercise(exercise) {
   const type = exercise.type ?? "strength";
   const names = getExerciseNames(exercise);
   const supersetExercises = getSupersetExercises(exercise);
-  const canEditInline = Boolean(state.activeTemplateWorkout && !state.editingTemplate);
+  const canEditInline = Boolean(!state.editingTemplate && type === "strength" && !exercise.isSuperset);
   const canDelete = !state.activeTemplateWorkout || state.editingTemplate || templateExerciseEditMode;
   const canStartTimer = Boolean(!state.editingTemplate && type === "strength");
+  const canReorder = Boolean(state.editingTemplate);
   const completedRestTimers = Number(exercise.restCompletions ?? 0);
-  const targetRestTimers = Math.max(1, countExerciseSets(exercise));
+  const targetRestTimers = Math.max(1, countRestRounds(exercise));
   const isExerciseDone = canStartTimer && completedRestTimers >= targetRestTimers;
   const restTimerRemaining = canStartTimer && restTimerExerciseId === exercise.id && restTimerEndsAt
     ? Math.max(0, Math.ceil((restTimerEndsAt - Date.now()) / 1000))
     : null;
 
   return `
-    <li class="exercise-card">
+    <li class="exercise-card" data-exercise-card="${exercise.id}">
       <header>
         <div>
           <h3>${exercise.isSuperset ? "Superset" : escapeHtml(exercise.name)}</h3>
@@ -1058,6 +1079,18 @@ function renderExercise(exercise) {
           </button>
         ` : ""}
       </header>
+      ${canReorder ? `
+        <div class="exercise-reorder-controls">
+          <button class="drag-handle" type="button" data-drag-exercise="${exercise.id}" aria-label="Sposta esercizio">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7h8M8 12h8M8 17h8" /></svg>
+            Sposta
+          </button>
+          <div>
+            <button type="button" data-move-exercise="${exercise.id}" data-move-direction="-1" aria-label="Sposta su">Su</button>
+            <button type="button" data-move-exercise="${exercise.id}" data-move-direction="1" aria-label="Sposta giu">Giu</button>
+          </div>
+        </div>
+      ` : ""}
       <div class="stats">
         ${type === "strength" ? `
           <span>${countExerciseSets(exercise)} serie</span>
@@ -1152,6 +1185,9 @@ function renderHistory(workout, options = {}) {
   const renameAction = options.renameAction ?? false;
   const templateLabel = options.templateLabel ?? "Salva come template";
   const effort = Number(workout.effort ?? 0);
+  const effortCopy = getWorkoutEffortEntries(workout)
+    .map((entry) => `${exerciseTypeLabel(entry.type)} ${entry.effort}/10`)
+    .join(" · ");
 
   return `
     <li class="history-card">
@@ -1164,7 +1200,7 @@ function renderHistory(workout, options = {}) {
               <span>${exerciseCount} esercizi</span>
               <span>${sets} serie</span>
               <span>${formatDuration(workout.durationSeconds ?? 0)}</span>
-              ${effort ? `<span>Fatica ${effort}/10</span>` : ""}
+              ${effortCopy ? `<span>Fatica ${escapeHtml(effortCopy)}</span>` : (effort ? `<span>Fatica ${effort}/10</span>` : "")}
             </div>
           </div>
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
@@ -1268,17 +1304,18 @@ function renderWeeklySchedule() {
 function renderScheduleItem(item) {
   const template = state.templates.find((entry) => entry.id === item.templateId);
   const templateName = template?.name ?? "Template non trovato";
-  const exerciseCount = template ? countSessionExercises(template.exercises) : 0;
-  const workoutDate = getScheduledWorkoutDate(item);
   const recurrenceCopy = item.recurring ? " · fisso settimanale" : "";
   const recurringLabel = item.recurring ? "Fisso" : "Rendi fisso";
+  const detailCopy = template
+    ? `${item.reminder ? "notifica 1h prima" : "senza notifica"}${recurrenceCopy}`
+    : "Allenamento eliminato";
 
   return `
     <li class="schedule-card">
       <div>
         <strong>${dayLabel(item.day)} · ${item.time}</strong>
         <span>${escapeHtml(templateName)}</span>
-        <small>${template ? `${exerciseCount} esercizi · ${formatFullDate(workoutDate)}` : "Allenamento eliminato"}${item.reminder ? " · notifica 1h prima" : ""}${recurrenceCopy}</small>
+        <small>${detailCopy}</small>
       </div>
       <div class="schedule-actions">
         ${template ? `<button type="button" data-schedule-start="${template.id}" data-schedule-item="${item.id}">Avvia</button>` : ""}
@@ -1440,6 +1477,34 @@ function getWorkoutEffortMeta(exercises, template = null) {
   };
 }
 
+function getWorkoutEffortMetas(exercises, template = null) {
+  const types = [...new Set(exercises.map((exercise) => exercise.type ?? "strength"))];
+  const isMixedWorkout = types.length > 1;
+
+  return ["strength", "cardio", "stretching"]
+    .filter((type) => types.includes(type))
+    .map((type) => {
+      if (type === "strength") {
+        return {
+          type,
+          groupKey: template ? `strength:${template.id}` : "strength:free",
+          groupName: template?.name ?? "Forza libera",
+          label: template ? `la parte forza di ${template.name}` : "la parte forza dell'allenamento",
+          shouldAsk: Boolean(template) || isMixedWorkout,
+        };
+      }
+
+      return {
+        type,
+        groupKey: type,
+        groupName: exerciseTypeLabel(type),
+        label: `la parte ${exerciseTypeLabel(type).toLocaleLowerCase("it-IT")}`,
+        shouldAsk: true,
+      };
+    })
+    .filter((meta) => meta.shouldAsk);
+}
+
 function getDominantWorkoutType(exercises) {
   const counts = exercises.reduce((result, exercise) => {
     const type = exercise.type ?? "strength";
@@ -1455,20 +1520,21 @@ function getEffortGroups(workouts) {
   const groups = new Map();
 
   workouts.forEach((workout) => {
-    const inferred = getWorkoutEffortMeta(workout.exercises ?? [], workout.templateId ? getTemplateById(workout.templateId) : null);
-    const type = workout.effortType ?? inferred.type;
-    const groupKey = workout.effortGroupKey ?? (type === "strength" && workout.templateName ? `strength:${exerciseKey(workout.templateName)}` : inferred.groupKey);
-    const groupName = workout.effortGroupName ?? (type === "strength" && workout.templateName ? workout.templateName : inferred.groupName);
-    if (type === "strength" && groupName === "Forza libera") return;
+    getWorkoutEffortEntries(workout).forEach((entry) => {
+      const type = entry.type;
+      const groupKey = entry.groupKey;
+      const groupName = entry.groupName;
+      if (type === "strength" && groupName === "Forza libera") return;
 
-    const existing = groups.get(groupKey) ?? {
-      key: groupKey,
-      type,
-      name: type === "strength" ? `Forza · ${groupName}` : groupName,
-      workouts: [],
-    };
-    existing.workouts.push(workout);
-    groups.set(groupKey, existing);
+      const existing = groups.get(groupKey) ?? {
+        key: groupKey,
+        type,
+        name: type === "strength" ? `Forza · ${groupName}` : groupName,
+        workouts: [],
+      };
+      existing.workouts.push({ ...workout, effort: entry.effort });
+      groups.set(groupKey, existing);
+    });
   });
 
   return [...groups.values()].sort((a, b) => {
@@ -1478,6 +1544,29 @@ function getEffortGroups(workouts) {
   });
 }
 
+function getWorkoutEffortEntries(workout) {
+  if (Array.isArray(workout.effortEntries) && workout.effortEntries.length) {
+    return workout.effortEntries
+      .filter((entry) => Number(entry.effort ?? 0) > 0)
+      .map((entry) => ({
+        effort: Number(entry.effort),
+        type: entry.type ?? "strength",
+        groupKey: entry.groupKey ?? entry.type ?? "strength",
+        groupName: entry.groupName ?? exerciseTypeLabel(entry.type ?? "strength"),
+      }));
+  }
+
+  if (Number(workout.effort ?? 0) <= 0) return [];
+  const inferred = getWorkoutEffortMeta(workout.exercises ?? [], workout.templateId ? getTemplateById(workout.templateId) : null);
+  const type = workout.effortType ?? inferred.type;
+  return [{
+    effort: Number(workout.effort),
+    type,
+    groupKey: workout.effortGroupKey ?? (type === "strength" && workout.templateName ? `strength:${exerciseKey(workout.templateName)}` : inferred.groupKey),
+    groupName: workout.effortGroupName ?? (type === "strength" && workout.templateName ? workout.templateName : inferred.groupName),
+  }];
+}
+
 async function promptWorkoutEffort(effortMeta) {
   const answer = await appPrompt(
     "Fatica allenamento",
@@ -1485,13 +1574,32 @@ async function promptWorkoutEffort(effortMeta) {
     "",
     { inputMode: "numeric", placeholder: "1-10" },
   );
-  if (answer === null || !answer.trim()) return null;
+  if (answer === null) return null;
+  if (!answer.trim()) return { cancelled: true };
   const effort = Math.round(parseDecimal(answer));
   if (!effort || effort < 1 || effort > 10) {
     await appAlert("Fatica non salvata", "Inserisci un numero da 1 a 10.");
-    return null;
+    return { cancelled: true };
   }
   return effort;
+}
+
+async function promptWorkoutEfforts(exercises, template = null) {
+  const metas = getWorkoutEffortMetas(exercises, template);
+  const entries = [];
+
+  for (const meta of metas) {
+    const effort = await promptWorkoutEffort(meta);
+    if (effort === null || effort?.cancelled) return null;
+    entries.push({
+      effort,
+      type: meta.type,
+      groupKey: meta.groupKey,
+      groupName: meta.groupName,
+    });
+  }
+
+  return entries;
 }
 
 function renderHistoryPage() {
@@ -1508,6 +1616,7 @@ function renderExerciseSuggestions() {
 
   const query = input.value.trim();
   const matches = getExerciseSuggestions(query, currentExerciseType).slice(0, 6);
+  input.closest(".field")?.after(exerciseSuggestions);
 
   exerciseSuggestions.hidden = matches.length === 0;
   exerciseSuggestions.innerHTML = matches
@@ -1529,7 +1638,7 @@ function renderProgressPage() {
 
 function renderEffortProgress() {
   const workouts = [...state.history]
-    .filter((workout) => Number(workout.effort ?? 0) > 0)
+    .filter((workout) => getWorkoutEffortEntries(workout).length > 0)
     .sort((a, b) => new Date(a.date) - new Date(b.date));
   if (!workouts.length) return "";
 
@@ -1743,6 +1852,7 @@ async function createBlankTemplate() {
   state.activeTemplateWorkout = false;
   state.exercises = [];
   state.sessionStartedAt = null;
+  currentExerciseType = "strength";
   document.querySelector("#templateNamePage").value = "";
   saveCurrent();
   render();
@@ -1794,6 +1904,7 @@ async function editTemplate(templateId) {
   clearPendingTemplateSetUpdates();
   state.exercises = cloneSessionExercises(template.exercises);
   state.sessionStartedAt = null;
+  currentExerciseType = "strength";
   saveCurrent();
   render();
   showView("workout");
@@ -1971,6 +2082,56 @@ function updateExercise(exerciseId, updater, rerender = true) {
   } else {
     scheduleSaveCurrent();
   }
+}
+
+function startExerciseMove(event) {
+  const handle = event.target.closest("[data-drag-exercise]");
+  if (!handle || !state.editingTemplate) return;
+  movingExerciseId = handle.dataset.dragExercise;
+  handle.closest(".exercise-card")?.classList.add("is-moving");
+  list.classList.add("is-reordering");
+  event.preventDefault();
+}
+
+function moveExercise(event) {
+  if (!movingExerciseId || !state.editingTemplate) return;
+  const targetCard = document.elementFromPoint(event.clientX, event.clientY)?.closest("[data-exercise-card]");
+  const targetId = targetCard?.dataset.exerciseCard;
+  if (!targetId || targetId === movingExerciseId) return;
+  reorderExercise(movingExerciseId, targetId);
+  event.preventDefault();
+}
+
+function endExerciseMove() {
+  if (!movingExerciseId) return;
+  movingExerciseId = null;
+  list.classList.remove("is-reordering");
+  list.querySelectorAll(".is-moving").forEach((card) => card.classList.remove("is-moving"));
+}
+
+function moveExerciseByDirection(exerciseId, direction) {
+  if (!state.editingTemplate) return;
+  const currentIndex = state.exercises.findIndex((exercise) => exercise.id === exerciseId);
+  const nextIndex = currentIndex + direction;
+  if (currentIndex < 0 || nextIndex < 0 || nextIndex >= state.exercises.length) return;
+  const nextExercises = [...state.exercises];
+  const [exercise] = nextExercises.splice(currentIndex, 1);
+  nextExercises.splice(nextIndex, 0, exercise);
+  state.exercises = nextExercises;
+  saveCurrent();
+  render();
+}
+
+function reorderExercise(sourceId, targetId) {
+  const sourceIndex = state.exercises.findIndex((exercise) => exercise.id === sourceId);
+  const targetIndex = state.exercises.findIndex((exercise) => exercise.id === targetId);
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return;
+  const nextExercises = [...state.exercises];
+  const [exercise] = nextExercises.splice(sourceIndex, 1);
+  nextExercises.splice(targetIndex, 0, exercise);
+  state.exercises = nextExercises;
+  saveCurrent();
+  render();
 }
 
 function syncTemplateSetEdit(exerciseId, setIndex, field, newValue) {
@@ -2363,26 +2524,20 @@ function getExerciseSuggestions(query = "", type = currentExerciseType) {
 
   state.myExercises.forEach((exercise) => {
     if ((exercise.type ?? "strength") !== type) return;
-    const key = exerciseKey(exercise.name);
-    if (!key || suggestions.has(key)) return;
-    suggestions.set(key, exercise.name.trim());
+    addExerciseSuggestionNames(suggestions, [exercise.name]);
   });
 
   state.history.forEach((workout) => {
     workout.exercises.forEach((exercise) => {
       if ((exercise.type ?? "strength") !== type) return;
-      const key = exerciseKey(exercise.name);
-      if (!key || suggestions.has(key)) return;
-      suggestions.set(key, exercise.name.trim());
+      addExerciseSuggestionNames(suggestions, getExerciseNames(exercise));
     });
   });
 
   state.templates.forEach((template) => {
     template.exercises.forEach((exercise) => {
       if ((exercise.type ?? "strength") !== type) return;
-      const key = exerciseKey(exercise.name);
-      if (!key || suggestions.has(key)) return;
-      suggestions.set(key, exercise.name.trim());
+      addExerciseSuggestionNames(suggestions, getExerciseNames(exercise));
     });
   });
 
@@ -2390,6 +2545,18 @@ function getExerciseSuggestions(query = "", type = currentExerciseType) {
     if (!normalizedQuery) return true;
     return exerciseKey(name).includes(normalizedQuery);
   });
+}
+
+function addExerciseSuggestionNames(suggestions, names) {
+  names
+    .flatMap((name) => String(name).split(" + "))
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .forEach((name) => {
+      const key = exerciseKey(name);
+      if (!key || suggestions.has(key)) return;
+      suggestions.set(key, name);
+    });
 }
 
 function highlightSuggestion(name, query) {
@@ -2472,6 +2639,11 @@ function countExerciseSets(exercise) {
   if (type === "stretching") return getStretchSets(exercise);
   if (type === "cardio") return 0;
   return normalizeSets(exercise).length;
+}
+
+function countRestRounds(exercise) {
+  if (!exercise.isSuperset) return countExerciseSets(exercise);
+  return getSupersetExercises(exercise).reduce((max, item) => Math.max(max, item.sets.length), 0);
 }
 
 function getSupersetNames() {
