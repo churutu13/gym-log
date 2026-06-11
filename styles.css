@@ -1,15 +1,15 @@
 :root {
-  color-scheme: dark;
-  --bg: #111315;
-  --panel: #1b1f23;
-  --panel-strong: #242a30;
-  --line: #343b43;
-  --text: #f5f2e9;
-  --muted: #aab3b6;
-  --accent: #60d394;
-  --accent-dark: #1f8f5a;
-  --warn: #f26d5b;
-  --gold: #f0c35b;
+  color-scheme: light;
+  --bg: #f6f8f1;
+  --panel: #fffdf7;
+  --panel-strong: #eef4ea;
+  --line: #d7dfd2;
+  --text: #111315;
+  --muted: #647069;
+  --accent: #2fa96d;
+  --accent-dark: #18754a;
+  --warn: #c94f41;
+  --gold: #a97817;
   --radius: 8px;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -26,13 +26,29 @@ body {
   min-height: 100svh;
   margin: 0;
   background:
-    linear-gradient(180deg, rgba(96, 211, 148, 0.14), transparent 240px),
+    linear-gradient(180deg, rgba(119, 214, 159, 0.34), rgba(246, 248, 241, 0.98) 360px),
     var(--bg);
   color: var(--text);
 }
 
 body.splash-active {
   background: #000;
+}
+
+body.splash-active .intro-copy,
+body.splash-active .home-hero h1 {
+  color: #f5f2e9;
+}
+
+body.splash-active .intro-copy p:last-child {
+  color: #aab3b6;
+}
+
+body.splash-active .intro-close-button {
+  border-color: #343b43;
+  background: rgba(27, 31, 35, 0.92);
+  color: #f5f2e9;
+  box-shadow: none;
 }
 
 button,
@@ -68,6 +84,10 @@ body.splash-active .app-shell {
 
 .topbar > div {
   text-align: right;
+}
+
+.topbar h1 {
+  color: var(--text);
 }
 
 .eyebrow {
@@ -164,6 +184,7 @@ body.splash-active .home-hero {
 }
 
 .home-hero h1 {
+  color: var(--text);
   font-size: 2.75rem;
   line-height: 1.02;
   text-align: center;
@@ -172,6 +193,7 @@ body.splash-active .home-hero {
 
 body.splash-active .home-hero h1 {
   max-width: min(92vw, 720px);
+  color: #f5f2e9;
   font-size: clamp(3.4rem, 14vw, 6.4rem);
   letter-spacing: 0;
   animation: splash-welcome-in 2300ms ease-out both;
@@ -208,8 +230,9 @@ body.splash-active .home-hero h1 {
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(27, 31, 35, 0.92);
+  background: rgba(255, 253, 247, 0.94);
   color: var(--text);
+  box-shadow: 0 12px 30px rgba(48, 60, 48, 0.12);
   cursor: pointer;
   opacity: 0;
   pointer-events: none;
@@ -240,7 +263,7 @@ body.splash-active .home-hero h1 {
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 999px;
-  background: rgba(27, 31, 35, 0.88);
+  background: rgba(255, 253, 247, 0.92);
   color: var(--muted);
   font-size: 0.78rem;
   font-weight: 900;
@@ -262,9 +285,10 @@ body.splash-active .home-hero h1 {
 .ghost-button {
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(27, 31, 35, 0.92);
+  background: rgba(255, 253, 247, 0.94);
   color: var(--text);
   cursor: pointer;
+  box-shadow: 0 10px 28px rgba(48, 60, 48, 0.08);
 }
 
 .home-actions button {
@@ -313,7 +337,7 @@ body.splash-active .home-hero h1 {
   display: grid;
   align-items: end;
   padding: 16px;
-  background: rgba(17, 19, 21, 0.72);
+  background: rgba(17, 19, 21, 0.34);
 }
 
 .choice-sheet[hidden] {
@@ -327,8 +351,9 @@ body.splash-active .home-hero h1 {
   margin: 0 auto calc(env(safe-area-inset-bottom) + 8px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #1b1f23;
+  background: var(--panel);
   padding: 14px;
+  box-shadow: 0 24px 70px rgba(48, 60, 48, 0.2);
   animation: sheet-in 180ms ease both;
 }
 
@@ -339,7 +364,7 @@ body.splash-active .home-hero h1 {
   display: grid;
   place-items: end center;
   padding: 16px;
-  background: rgba(17, 19, 21, 0.78);
+  background: rgba(17, 19, 21, 0.38);
 }
 
 .app-dialog-card {
@@ -349,9 +374,9 @@ body.splash-active .home-hero h1 {
   margin-bottom: calc(env(safe-area-inset-bottom) + 8px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #1b1f23;
+  background: var(--panel);
   padding: 16px;
-  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.42);
+  box-shadow: 0 22px 60px rgba(48, 60, 48, 0.22);
   animation: sheet-in 160ms ease both;
 }
 
@@ -385,7 +410,7 @@ body.splash-active .home-hero h1 {
 .app-dialog-actions button.primary {
   border-color: rgba(96, 211, 148, 0.4);
   background: var(--accent);
-  color: #07120b;
+  color: #f9fff9;
 }
 
 .app-dialog-actions button:only-child {
@@ -403,12 +428,12 @@ body.splash-active .home-hero h1 {
   min-height: 42px;
   border: 1px solid rgba(96, 211, 148, 0.42);
   border-radius: 999px;
-  background: #1b1f23;
+  background: var(--panel);
   color: var(--text);
   padding: 0 13px;
   font-size: 0.88rem;
   font-weight: 850;
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.32);
+  box-shadow: 0 12px 34px rgba(48, 60, 48, 0.16);
 }
 
 .active-workout-pill[hidden] {
@@ -465,6 +490,7 @@ body.splash-active .home-hero h1 {
 
 .onboarding-view {
   min-height: 100svh;
+  color: var(--text);
 }
 
 .onboarding-track {
@@ -484,8 +510,9 @@ body.splash-active .home-hero h1 {
   scroll-snap-align: center;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(27, 31, 35, 0.94);
+  background: rgba(255, 253, 247, 0.86);
   padding: 22px;
+  box-shadow: 0 18px 50px rgba(48, 60, 48, 0.1);
 }
 
 .onboarding-card:focus-within {
@@ -497,6 +524,16 @@ body.splash-active .home-hero h1 {
 .onboarding-card h2 {
   font-size: 2rem;
   line-height: 1.05;
+}
+
+.onboarding-card .field span {
+  color: var(--muted);
+}
+
+.onboarding-card .field input {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text);
 }
 
 .segmented-control {
@@ -521,7 +558,7 @@ body.splash-active .home-hero h1 {
   place-items: center;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #14181c;
+  background: var(--panel-strong);
   color: var(--muted);
   font-size: 0.88rem;
   font-weight: 850;
@@ -532,6 +569,17 @@ body.splash-active .home-hero h1 {
   border-color: rgba(96, 211, 148, 0.58);
   background: rgba(96, 211, 148, 0.16);
   color: var(--accent);
+}
+
+.onboarding-card .segmented-control span {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.76);
+  color: var(--muted);
+}
+
+.onboarding-card .segmented-control input:checked + span {
+  background: rgba(96, 211, 148, 0.22);
+  color: #1f6f49;
 }
 
 .segmented-control .compact-option {
@@ -591,7 +639,8 @@ svg {
 .weight-progress-panel,
 .danger-panel {
   border: 1px solid var(--line);
-  background: rgba(27, 31, 35, 0.92);
+  background: rgba(255, 253, 247, 0.92);
+  box-shadow: 0 14px 34px rgba(48, 60, 48, 0.08);
 }
 
 .session-summary div {
@@ -644,7 +693,7 @@ svg {
   min-height: 48px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #111519;
+  background: rgba(255, 255, 255, 0.92);
   color: var(--text);
   outline: 0;
   padding: 0 12px;
@@ -688,7 +737,7 @@ svg {
   min-height: 42px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #14181c;
+  background: var(--panel);
   color: var(--text);
   padding: 0 12px;
   text-align: left;
@@ -774,7 +823,7 @@ svg {
   gap: 10px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #14181c;
+  background: var(--panel-strong);
   padding: 10px;
 }
 
@@ -796,7 +845,7 @@ svg {
   padding: 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #14181c;
+  background: var(--panel-strong);
 }
 
 .set-row > strong {
@@ -805,7 +854,7 @@ svg {
   height: 48px;
   place-items: center;
   border-radius: var(--radius);
-  background: rgba(96, 211, 148, 0.12);
+  background: rgba(47, 169, 109, 0.12);
   color: var(--accent);
 }
 
@@ -850,7 +899,7 @@ svg {
   width: 100%;
   min-height: 52px;
   background: var(--accent);
-  color: #07120b;
+  color: #f9fff9;
   font-weight: 850;
 }
 
@@ -992,7 +1041,8 @@ svg {
   align-items: center;
   gap: 10px;
   border-radius: var(--radius);
-  background: #14181c;
+  border: 1px solid var(--line);
+  background: var(--panel);
   padding: 10px;
 }
 
@@ -1118,7 +1168,7 @@ svg {
 .set-heading button {
   border-color: rgba(96, 211, 148, 0.4) !important;
   background: var(--accent) !important;
-  color: #07120b !important;
+  color: #f9fff9 !important;
 }
 
 [data-template-delete],
@@ -1196,8 +1246,9 @@ ul {
   gap: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #14181c;
+  background: var(--panel);
   padding: 14px;
+  box-shadow: 0 10px 24px rgba(48, 60, 48, 0.06);
 }
 
 .exercise-card header,
@@ -1353,7 +1404,8 @@ ul {
   display: grid;
   gap: 9px;
   border-radius: var(--radius);
-  background: rgba(27, 31, 35, 0.76);
+  border: 1px solid var(--line);
+  background: var(--panel-strong);
   padding: 12px;
 }
 
@@ -1410,7 +1462,8 @@ ul {
   display: grid;
   gap: 8px;
   border-radius: var(--radius);
-  background: rgba(27, 31, 35, 0.76);
+  border: 1px solid var(--line);
+  background: var(--panel-strong);
   padding: 10px;
 }
 
@@ -1480,7 +1533,8 @@ ul {
   display: grid;
   gap: 8px;
   border-radius: var(--radius);
-  background: rgba(27, 31, 35, 0.76);
+  border: 1px solid var(--line);
+  background: var(--panel-strong);
   padding: 10px;
 }
 
@@ -1575,7 +1629,7 @@ ul {
 
 .library-group {
   gap: 10px;
-  background: rgba(27, 31, 35, 0.76);
+  background: var(--panel-strong);
 }
 
 .library-group h3 {
@@ -1731,8 +1785,8 @@ ul {
 }
 
 .delta-hard {
-  background: rgba(255, 99, 170, 0.16);
-  color: #ff8fc5 !important;
+  background: rgba(196, 57, 122, 0.12);
+  color: #b73773 !important;
 }
 
 .delta-easy {
@@ -1923,7 +1977,7 @@ ul {
   min-height: 38px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #111519;
+  background: rgba(255, 255, 255, 0.92);
   color: var(--text);
   padding: 0 8px;
 }

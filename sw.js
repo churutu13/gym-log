@@ -1,4 +1,4 @@
-const CACHE_NAME = "kilo-v1";
+const CACHE_NAME = "kilo-v6";
 const APP_ASSETS = [
   "./",
   "./index.html",

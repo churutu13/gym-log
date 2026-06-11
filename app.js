@@ -383,7 +383,7 @@ form.addEventListener("submit", async (event) => {
   }
 
   const exercise = {
-    id: crypto.randomUUID(),
+    id: createId(),
     name: isSuperset ? supersetExercises.map((item) => item.name).join(" + ") : value("#exerciseName"),
     names: isSuperset ? supersetExercises.map((item) => item.name) : null,
     supersetExercises: isSuperset ? supersetExercises : null,
@@ -449,7 +449,7 @@ document.querySelector("#finishWorkout").addEventListener("click", async () => {
   const scheduleId = state.activeScheduleId;
 
   state.history.unshift({
-    id: crypto.randomUUID(),
+    id: createId(),
     date: new Date().toISOString(),
     title: finishedTemplate?.name ?? "",
     templateId: finishedTemplate?.id ?? null,
@@ -720,10 +720,8 @@ async function openStartPanel() {
     const replace = await appConfirm("Allenamento in corso", "Vuoi iniziarne uno nuovo e sostituire quello attuale?");
     if (!replace) return;
     replacingActiveWorkout = true;
-    if (!state.templates.length) {
-      await startBlankWorkout();
-      return;
-    }
+    await startBlankWorkout();
+    return;
   }
 
   document.querySelector("#startSheet").hidden = false;
@@ -745,6 +743,7 @@ async function startBlankWorkout() {
   templateAddMode = false;
   templateExerciseEditMode = false;
   currentExerciseType = "strength";
+  resetExerciseEntryState();
   replacingActiveWorkout = false;
   state.exercises = [];
   state.sessionStartedAt = isReplacing ? new Date().toISOString() : state.sessionStartedAt ?? new Date().toISOString();
@@ -766,6 +765,7 @@ async function startTemplateWorkout(templateId, scheduleId = null) {
   templateAddMode = false;
   templateExerciseEditMode = false;
   currentExerciseType = "strength";
+  resetExerciseEntryState();
   replacingActiveWorkout = false;
   state.exercises = cloneSessionExercises(template.exercises);
   state.sessionStartedAt = isReplacing ? new Date().toISOString() : state.sessionStartedAt ?? new Date().toISOString();
@@ -784,9 +784,15 @@ function finishOnboarding() {
     goal: checkedValue("goalSetup") || "massa",
     gender: checkedValue("genderSetup") || "neutral",
   };
-  addWeightEntry(weight, false, true);
   saveProfile();
-  render();
+  try {
+    addWeightEntry(weight, false, true);
+  } catch (error) {
+    console.warn("Weight setup could not be saved", error);
+  }
+  welcomePlayed = false;
+  sessionStorage.removeItem("gym-log-welcome-played");
+  document.body.classList.remove("splash-active");
   showView("home");
 }
 
@@ -1387,7 +1393,7 @@ async function addScheduleItem() {
   }
 
   const item = {
-    id: crypto.randomUUID(),
+    id: createId(),
     day: Number(value("#scheduleDay")),
     time: value("#scheduleTime") || "18:30",
     templateId,
@@ -1848,11 +1854,12 @@ async function createBlankTemplate() {
   }
 
   if (state.exercises.length && !await appConfirm("Sostituire sessione?", "La sessione corrente verra' rimossa.")) return;
-  state.editingTemplate = { id: crypto.randomUUID(), name };
+  state.editingTemplate = { id: createId(), name };
   state.activeTemplateWorkout = false;
   state.exercises = [];
   state.sessionStartedAt = null;
   currentExerciseType = "strength";
+  resetExerciseEntryState();
   document.querySelector("#templateNamePage").value = "";
   saveCurrent();
   render();
@@ -1863,7 +1870,7 @@ function saveTemplateFromExercises(name, exercises) {
   const key = exerciseKey(name);
   const existing = state.templates.find((template) => exerciseKey(template.name) === key);
   const templateData = {
-    id: existing?.id ?? crypto.randomUUID(),
+    id: existing?.id ?? createId(),
     name,
     exercises: cloneTemplateExercises(exercises),
     updatedAt: new Date().toISOString(),
@@ -1905,6 +1912,7 @@ async function editTemplate(templateId) {
   state.exercises = cloneSessionExercises(template.exercises);
   state.sessionStartedAt = null;
   currentExerciseType = "strength";
+  resetExerciseEntryState();
   saveCurrent();
   render();
   showView("workout");
@@ -2000,7 +2008,7 @@ async function addMyExercise(name, type = "strength") {
   }
 
   state.myExercises.unshift({
-    id: crypto.randomUUID(),
+    id: createId(),
     name: cleanName,
     type,
     createdAt: new Date().toISOString(),
@@ -2017,7 +2025,7 @@ function rememberExerciseName(name, type = "strength") {
   if (!key || state.myExercises.some((exercise) => exerciseKey(exercise.name) === key && (exercise.type ?? "strength") === type)) return;
 
   state.myExercises.unshift({
-    id: crypto.randomUUID(),
+    id: createId(),
     name: cleanName,
     type,
     createdAt: new Date().toISOString(),
@@ -2052,7 +2060,7 @@ function addWeightEntry(weightValue, shouldSyncProfile = false, replaceToday = f
     ? state.weightEntries.findIndex((entry) => entry.date.slice(0, 10) === todayKey)
     : -1;
   const entry = {
-    id: existingIndex >= 0 ? state.weightEntries[existingIndex].id : crypto.randomUUID(),
+    id: existingIndex >= 0 ? state.weightEntries[existingIndex].id : createId(),
     weight,
     date: new Date().toISOString(),
   };
@@ -2361,6 +2369,13 @@ function checkedValue(name) {
   return document.querySelector(`[name='${name}']:checked`)?.value ?? "";
 }
 
+function createId() {
+  if (globalThis.crypto?.randomUUID) {
+    return globalThis.crypto.randomUUID();
+  }
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 function addSetRow(set = { reps: "", weight: "" }, container = setRows) {
   const row = document.createElement("div");
   row.className = "set-row";
@@ -2400,6 +2415,21 @@ function syncRestButtons() {
   document.querySelectorAll("[data-rest]").forEach((button) => {
     button.classList.toggle("active", Number(button.dataset.rest) === selectedRest);
   });
+}
+
+function resetExerciseEntryState() {
+  form.reset();
+  currentExerciseType = "strength";
+  selectedRest = 90;
+  supersetToggle.checked = false;
+  supersetThirdField.hidden = true;
+  document.querySelector("#toggleSupersetThird").textContent = "Aggiungi terzo esercizio";
+  resetSetRows();
+  resetSetRows(supersetSetRows2);
+  resetSetRows(supersetSetRows3);
+  hideExerciseSuggestions();
+  renderExerciseTypeFields();
+  syncRestButtons();
 }
 
 function getSetValues(container = setRows) {
@@ -2445,7 +2475,7 @@ function normalizeSets(exercise) {
 
 function cloneTemplateExercises(exercises) {
   return exercises.map((exercise) => ({
-    id: exercise.templateExerciseId ?? exercise.id ?? crypto.randomUUID(),
+    id: exercise.templateExerciseId ?? exercise.id ?? createId(),
     name: exercise.name,
     names: exercise.names ? [...exercise.names] : null,
     isSuperset: Boolean(exercise.isSuperset),
@@ -2464,7 +2494,7 @@ function cloneTemplateExercises(exercises) {
 
 function cloneSessionExercises(exercises) {
   return exercises.map((exercise, index) => ({
-    id: crypto.randomUUID(),
+    id: createId(),
     templateExerciseId: exercise.id ?? exercise.templateExerciseId ?? null,
     templateExerciseIndex: index,
     name: exercise.name,
