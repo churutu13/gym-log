@@ -394,6 +394,7 @@ form.addEventListener("submit", async (event) => {
     durationSeconds: exerciseType === "stretching" ? durationValue : null,
     stretchSets: exerciseType === "stretching" ? stretchingSets : null,
     rest: selectedRest,
+    note: "",
     createdAt: new Date().toISOString(),
   };
 
@@ -536,6 +537,12 @@ list.addEventListener("click", (event) => {
 });
 
 list.addEventListener("input", (event) => {
+  const noteInput = event.target.closest("[data-exercise-note]");
+  if (noteInput) {
+    updateExerciseNote(noteInput.dataset.exerciseId, noteInput.value);
+    return;
+  }
+
   const input = event.target.closest("[data-set-field]");
   if (!input) return;
 
@@ -553,6 +560,24 @@ list.addEventListener("input", (event) => {
     return { ...exercise, sets };
   }, false);
   syncTemplateSetEdit(input.dataset.exerciseId, setIndex, field, parsedValue);
+});
+
+templatePageList.addEventListener("input", (event) => {
+  const noteInput = event.target.closest("[data-template-exercise-note]");
+  if (!noteInput) return;
+  updateTemplateExerciseNote(noteInput.dataset.templateId, noteInput.dataset.exerciseId, noteInput.value);
+});
+
+historyPageList.addEventListener("input", (event) => {
+  const noteInput = event.target.closest("[data-history-exercise-note]");
+  if (!noteInput) return;
+  updateHistoryExerciseNote(noteInput.dataset.historyId, noteInput.dataset.exerciseId, noteInput.value);
+});
+
+templateHistoryList.addEventListener("input", (event) => {
+  const noteInput = event.target.closest("[data-history-exercise-note]");
+  if (!noteInput) return;
+  updateHistoryExerciseNote(noteInput.dataset.historyId, noteInput.dataset.exerciseId, noteInput.value);
 });
 
 historyPageList.addEventListener("click", async (event) => {
@@ -1135,7 +1160,32 @@ function renderExercise(exercise) {
         </ol>
         ${canEditInline ? renderInlineExerciseControls(exercise) : ""}
       ` : ""}
+      ${renderExerciseNote(exercise, {
+        editable: true,
+        textareaAttributes: `data-exercise-note data-exercise-id="${exercise.id}"`,
+      })}
     </li>
+  `;
+}
+
+function renderExerciseNote(exercise, options = {}) {
+  const note = String(exercise.note ?? "");
+  const editable = options.editable ?? false;
+  const textareaAttributes = options.textareaAttributes ?? "";
+  if (!editable && !note.trim()) return "";
+
+  return `
+    <details class="exercise-note">
+      <summary>
+        <span>Note</span>
+        ${note.trim() ? `<small>${escapeHtml(note).slice(0, 34)}${note.length > 34 ? "..." : ""}</small>` : ""}
+      </summary>
+      ${editable ? `
+        <textarea rows="2" placeholder="Aggiungi una nota..." ${textareaAttributes}>${escapeHtml(note)}</textarea>
+      ` : `
+        <p>${escapeHtml(note)}</p>
+      `}
+    </details>
   `;
 }
 
@@ -1213,7 +1263,10 @@ function renderHistory(workout, options = {}) {
         </summary>
         ${workout.templateName ? `<p class="history-extra">Da template ${escapeHtml(workout.templateName)} · ${date}</p>` : ""}
         <ul class="saved-session-list">
-          ${workout.exercises.map(renderSavedExercise).join("")}
+          ${workout.exercises.map((exercise) => renderSavedExercise(exercise, {
+            editableNote: true,
+            noteAttributes: `data-history-exercise-note data-history-id="${workout.id}" data-exercise-id="${exercise.id}"`,
+          })).join("")}
         </ul>
         ${templateAction ? `
           <div class="template-actions single-action">
@@ -1235,7 +1288,7 @@ function renderHistory(workout, options = {}) {
   `;
 }
 
-function renderSavedExercise(exercise) {
+function renderSavedExercise(exercise, options = {}) {
   const sets = normalizeSets(exercise);
   const type = exercise.type ?? "strength";
   const names = getExerciseNames(exercise);
@@ -1285,6 +1338,10 @@ function renderSavedExercise(exercise) {
           `).join("")}
         </ol>
       ` : ""}
+      ${renderExerciseNote(exercise, {
+        editable: options.editableNote ?? false,
+        textareaAttributes: options.noteAttributes ?? "",
+      })}
     </li>
   `;
 }
@@ -1378,7 +1435,10 @@ function renderTemplate(template) {
           <button type="button" data-template-delete="${template.id}">Elimina</button>
         </div>
         <ul class="saved-session-list">
-          ${template.exercises.map(renderSavedExercise).join("")}
+          ${template.exercises.map((exercise) => renderSavedExercise(exercise, {
+            editableNote: true,
+            noteAttributes: `data-template-exercise-note data-template-id="${template.id}" data-exercise-id="${exercise.id}"`,
+          })).join("")}
         </ul>
       </details>
     </li>
@@ -2092,6 +2152,40 @@ function updateExercise(exerciseId, updater, rerender = true) {
   }
 }
 
+function updateExerciseNote(exerciseId, note) {
+  updateExercise(exerciseId, (exercise) => ({
+    ...exercise,
+    note,
+  }), false);
+}
+
+function updateTemplateExerciseNote(templateId, exerciseId, note) {
+  state.templates = state.templates.map((template) => {
+    if (template.id !== templateId) return template;
+    return {
+      ...template,
+      exercises: template.exercises.map((exercise) => (
+        exercise.id === exerciseId ? { ...exercise, note } : exercise
+      )),
+      updatedAt: new Date().toISOString(),
+    };
+  });
+  saveTemplates();
+}
+
+function updateHistoryExerciseNote(historyId, exerciseId, note) {
+  state.history = state.history.map((workout) => {
+    if (workout.id !== historyId) return workout;
+    return {
+      ...workout,
+      exercises: workout.exercises.map((exercise) => (
+        exercise.id === exerciseId ? { ...exercise, note } : exercise
+      )),
+    };
+  });
+  localStorage.setItem("gym-log-history", JSON.stringify(state.history));
+}
+
 function startExerciseMove(event) {
   const handle = event.target.closest("[data-drag-exercise]");
   if (!handle || !state.editingTemplate) return;
@@ -2482,6 +2576,7 @@ function cloneTemplateExercises(exercises) {
     supersetExercises: cloneSupersetExercises(exercise),
     type: exercise.type ?? "strength",
     rest: exercise.rest ?? 90,
+    note: exercise.note ?? "",
     durationMinutes: exercise.durationMinutes ?? null,
     durationSeconds: exercise.durationSeconds ?? null,
     stretchSets: getStretchSets(exercise),
@@ -2503,6 +2598,7 @@ function cloneSessionExercises(exercises) {
     supersetExercises: cloneSupersetExercises(exercise),
     type: exercise.type ?? "strength",
     rest: exercise.rest ?? 90,
+    note: exercise.note ?? "",
     durationMinutes: exercise.durationMinutes ?? null,
     durationSeconds: exercise.durationSeconds ?? null,
     stretchSets: getStretchSets(exercise),
